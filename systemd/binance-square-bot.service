@@ -1,0 +1,17 @@
+[Unit]
+Description=Binance Square Automated Posting Bot - Talha Sniper
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/binance-automation
+ExecStart=/home/ubuntu/binance-automation/venv/bin/python main.py
+Restart=always
+RestartSec=30
+EnvironmentFile=/home/ubuntu/binance-automation/.env
+StandardOutput=append:/home/ubuntu/binance-automation/logs/systemd.log
+StandardError=append:/home/ubuntu/binance-automation/logs/systemd_error.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,65 @@
+================================================================================
+   BINANCE SQUARE AUTOMATED POSTING BOT - QUICK START GUIDE
+================================================================================
+
+Welcome! Follow these 3 simple steps to start using the bot:
+
+--------------------------------------------------------------------------------
+STEP 1: ADD YOUR BINANCE SQUARE KEY
+--------------------------------------------------------------------------------
+1. Open the file named ".env" with Notepad.
+2. Put your Binance Square OpenAPI key on line 8:
+   BINANCE_SQUARE_OPENAPI_KEY=your_key_here
+3. Make sure DRY_RUN=false is set on line 21:
+   DRY_RUN=false
+4. Save the file (Ctrl + S).
+
+*(To get your key: Binance.com -> Square -> Creator Center -> OpenAPI)*
+*(Only enable POSTING permission. Never enable Trading or Withdrawal).*
+
+--------------------------------------------------------------------------------
+STEP 2: START THE BOT (1-CLICK METHOD)
+--------------------------------------------------------------------------------
+You do NOT need to write any code. Just double-click these files:
+
+• To start 24/7 Auto-Posting:
+  Double-click -> start_bot.bat
+
+• To post just 1 signal immediately:
+  Double-click -> run.bat
+
+• To check your win-rate, target hits, and recent posts:
+  Double-click -> check_stats.bat
+
+--------------------------------------------------------------------------------
+STEP 3: ADVANCED USERS (POWERSHELL / COMMAND LINE)
+--------------------------------------------------------------------------------
+Open PowerShell in this folder and use these commands:
+
+• Start 24/7 background posting:
+  .\python main.py
+
+• Run 1 live post immediately:
+  .\python main.py --run-once
+
+• Check your historical accuracy & win-rate:
+  .\python main.py --stats
+
+• View recent posts table:
+  .\python main.py --history
+
+• Run full system diagnostics:
+  .\python scripts/health_check.py
+
+--------------------------------------------------------------------------------
+CUSTOMIZATION (.env file):
+--------------------------------------------------------------------------------
+• Change Watermark text on charts: WATERMARK_TEXT=Your_Brand_Name
+• Change Posting Interval (minutes): POST_INTERVAL_MINUTES=30
+• Simulation Mode: DRY_RUN=true (test only) or DRY_RUN=false (live post)
+
+For full detailed documentation in English and Roman Urdu, open:
+BUYER_MANUAL.md or README.md
+
+Happy automated trading & posting!
+================================================================================

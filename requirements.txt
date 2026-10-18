@@ -1,0 +1,19 @@
+# Core HTTP & API Clients
+requests>=2.31.0
+httpx>=0.27.0
+anthropic>=0.25.0
+
+# Market Data Analysis & Visualization
+pandas>=2.2.0
+numpy>=1.26.0
+matplotlib>=3.8.0
+mplfinance>=0.12.10b0
+pillow>=10.3.0
+
+# Task Scheduling & Config
+apscheduler>=3.10.4
+python-dotenv>=1.0.1
+pydantic>=2.7.0
+
+# Testing & Quality
+pytest>=8.0.0
