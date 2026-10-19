@@ -289,7 +289,7 @@ class ChartGenerator:
         y_min = min_p - (p_range * 0.08)
         y_max = max_p + (p_range * 0.08)
 
-        # Plot figure in 16:9 ratio
+        # Plot figure in authentic 2.15:1 mobile landscape ratio (matching real phone screens)
         fig, axlist = mpf.plot(
             df,
             type="candle",
@@ -298,8 +298,8 @@ class ChartGenerator:
             addplot=add_plots,
             ylim=(y_min, y_max),
             returnfig=True,
-            figsize=(12.8, 7.2),
-            panel_ratios=(3.7, 1.0),
+            figsize=(12.8, 6.0),
+            panel_ratios=(3.8, 1.0),
             tight_layout=False,
             ylabel="",
             ylabel_lower="",
@@ -312,8 +312,8 @@ class ChartGenerator:
         chart_left = 0.020
         chart_width = 0.895
         chart_bottom = 0.045
-        vol_height = 0.145
-        gap = 0.015
+        vol_height = 0.130
+        gap = 0.018
         main_bottom = chart_bottom + vol_height + gap
         main_height = 0.835 - main_bottom
 
@@ -363,12 +363,12 @@ class ChartGenerator:
         low_val = float(df["Low"].iloc[low_idx])
 
         main_ax.text(
-            high_idx, high_val, f"-{fmt_price(high_val, use_comma=True)}",
-            color=text_color, fontsize=8, fontweight="bold", va="bottom", ha="left",
+            high_idx, high_val, f"- {fmt_price(high_val, use_comma=True)}",
+            color=text_color, fontsize=8.5, fontweight="bold", va="bottom", ha="left",
         )
         main_ax.text(
-            low_idx, low_val, f"-{fmt_price(low_val, use_comma=True)}",
-            color=text_color, fontsize=8, fontweight="bold", va="top", ha="left",
+            low_idx, low_val, f"- {fmt_price(low_val, use_comma=True)}",
+            color=text_color, fontsize=8.5, fontweight="bold", va="top", ha="left",
         )
 
         # Current Price Dotted Line & Pill
@@ -382,77 +382,95 @@ class ChartGenerator:
             zorder=10,
         )
 
-        # Competitor Trader Drawing Overlay
+        # Realistic Trader Drawing Overlay (Natural paths with arrowheads)
         if setup.direction == "SHORT":
-            # Red descending trendline & projection arrow (like ENAUSDT & STRKUSDT competitor screenshots)
             peak_x = high_idx
             peak_y = high_val
             curr_x = n_bars - 1
 
-            trend_x = [peak_x, curr_x + 5]
-            trend_y = [peak_y, curr_p * 0.99]
-            main_ax.plot(trend_x, trend_y, color="#f6465d", linewidth=1.4, alpha=0.9, zorder=5)
+            # Natural resistance trendline across highs
+            main_ax.plot([peak_x, curr_x + 5], [peak_y, curr_p * 0.995], color="#f6465d", linewidth=1.5, alpha=0.9, zorder=5)
 
             if setup.support_level > 0:
-                main_ax.hlines(setup.support_level, peak_x, curr_x + 6, colors="#f6465d", linestyles="-", linewidths=1.0, alpha=0.7)
+                main_ax.hlines(setup.support_level, peak_x, curr_x + 7, colors="#0ecb81", linestyles="-", linewidths=1.0, alpha=0.6)
 
-            proj_x = [curr_x, curr_x + 2, curr_x + 3, curr_x + 6]
-            mid_bounce = curr_p * 1.003
-            mid_dip = curr_p * 0.988
-            proj_y = [curr_p, mid_dip, mid_bounce, setup.target_price]
-            main_ax.plot(proj_x, proj_y, color="#f6465d", linewidth=1.5, linestyle="-", zorder=6)
+            # Smooth trader projection path curving down to target
+            arrow_start_x = curr_x
+            arrow_start_y = curr_p
+            arrow_end_x = curr_x + 6
+            arrow_end_y = setup.target_price
 
-            # Invalidation & Target pills on right axis
-            main_ax.axhline(setup.stop_loss, color="#f6465d", linestyle="-", linewidth=0.9, alpha=0.8)
+            arrow = patches.FancyArrowPatch(
+                (arrow_start_x, arrow_start_y),
+                (arrow_end_x, arrow_end_y),
+                arrowstyle="-|>",
+                mutation_scale=13,
+                color="#f6465d",
+                linewidth=1.8,
+                linestyle="-",
+                zorder=7,
+            )
+            main_ax.add_patch(arrow)
+
+            # Target & Invalidation rounded pills on right axis matching real Binance App
+            main_ax.axhline(setup.stop_loss, color="#f6465d", linestyle="-", linewidth=0.9, alpha=0.85)
             main_ax.text(
                 1.002, setup.stop_loss, f" {fmt_price(setup.stop_loss, use_comma=True)} ",
                 transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="square,pad=0.2", fc="#f6465d", ec="none"),
+                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#f6465d", ec="none"),
                 zorder=10,
             )
-            main_ax.axhline(setup.target_price, color="#0ecb81", linestyle="-", linewidth=0.9, alpha=0.8)
+            main_ax.axhline(setup.target_price, color="#0ecb81", linestyle="-", linewidth=0.9, alpha=0.85)
             main_ax.text(
                 1.002, setup.target_price, f" {fmt_price(setup.target_price, use_comma=True)} ",
                 transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="square,pad=0.2", fc="#0ecb81", ec="none"),
+                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#0ecb81", ec="none"),
                 zorder=10,
             )
         elif setup.direction == "LONG":
-            # Consolidation box (like TIAUSDT competitor screenshot) & pump projection ray
-            box_start = max(0, n_bars - 24)
-            box_end = n_bars + 5
+            box_start = max(0, n_bars - 20)
+            box_end = n_bars + 2
             box_low = df["Low"].iloc[box_start:].min()
-            box_high = curr_p * 1.005
+            box_high = curr_p * 1.006
 
             rect = patches.Rectangle(
                 (box_start, box_low), box_end - box_start, box_high - box_low,
-                linewidth=1.2, edgecolor="#0ecb81", facecolor="#0ecb8118", zorder=3
+                linewidth=1.3, edgecolor="#0ecb81", facecolor="#0ecb8118", zorder=3
             )
             main_ax.add_patch(rect)
 
-            proj_x = [n_bars - 1, n_bars + 2, n_bars + 3, n_bars + 6]
-            mid_dip = curr_p * 0.997
-            mid_pump = curr_p * 1.015
-            proj_y = [curr_p, mid_dip, mid_pump, setup.target_price]
-            main_ax.plot(proj_x, proj_y, color="#0ecb81", linewidth=1.5, linestyle="-", zorder=6)
+            arrow_start_x = n_bars - 1
+            arrow_start_y = curr_p
+            arrow_end_x = n_bars + 6
+            arrow_end_y = setup.target_price
 
-            main_ax.axhline(setup.stop_loss, color="#f6465d", linestyle="-", linewidth=0.9, alpha=0.8)
+            arrow = patches.FancyArrowPatch(
+                (arrow_start_x, arrow_start_y),
+                (arrow_end_x, arrow_end_y),
+                arrowstyle="-|>",
+                mutation_scale=13,
+                color="#0ecb81",
+                linewidth=1.8,
+                linestyle="-",
+                zorder=7,
+            )
+            main_ax.add_patch(arrow)
+
+            main_ax.axhline(setup.stop_loss, color="#f6465d", linestyle="-", linewidth=0.9, alpha=0.85)
             main_ax.text(
                 1.002, setup.stop_loss, f" {fmt_price(setup.stop_loss, use_comma=True)} ",
                 transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="square,pad=0.2", fc="#f6465d", ec="none"),
+                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#f6465d", ec="none"),
                 zorder=10,
             )
-            main_ax.axhline(setup.target_price, color="#0ecb81", linestyle="-", linewidth=0.9, alpha=0.8)
+            main_ax.axhline(setup.target_price, color="#0ecb81", linestyle="-", linewidth=0.9, alpha=0.85)
             main_ax.text(
                 1.002, setup.target_price, f" {fmt_price(setup.target_price, use_comma=True)} ",
                 transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="square,pad=0.2", fc="#0ecb81", ec="none"),
-                zorder=10,
+                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
             )
 
         # Volume Panel Header with exact multi-colored MA values like competitor screenshots
@@ -551,6 +569,7 @@ class ChartGenerator:
         Renders the TradingView Pro dark-theme chart with RSI(14) panel,
         EMA lines, and TradingView Position Tool.
         """
+        base_sym = setup.coin.replace("USDT", "")
         full_df = setup.df_1h.copy()
         full_df.rename(
             columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
@@ -612,8 +631,6 @@ class ChartGenerator:
             add_plots.append(mpf.make_addplot(ma50, color=ma50_color, width=1.3, panel=0))
 
         add_plots.append(mpf.make_addplot(rsi, color=rsi_line_color, width=1.4, panel=1, ylabel="RSI (14)"))
-        add_plots.append(mpf.make_addplot([70.0] * len(df), color="#f2364570", linestyle="--", width=0.9, panel=1))
-        add_plots.append(mpf.make_addplot([30.0] * len(df), color="#08998170", linestyle="--", width=0.9, panel=1))
 
         all_prices = [df["Low"].min(), df["High"].max()]
         if setup.direction in ("LONG", "SHORT"):
@@ -648,6 +665,11 @@ class ChartGenerator:
 
         main_ax = axlist[0]
         rsi_ax = axlist[2]
+
+        # Hide any secondary/extra twin axes created by mplfinance
+        for ax in axlist:
+            if ax not in (main_ax, rsi_ax):
+                ax.set_visible(False)
 
         # Explicitly position axes to eliminate empty black voids on left and footer!
         chart_left = 0.020
@@ -691,6 +713,9 @@ class ChartGenerator:
         rsi_ax.set_xlim(-0.5, n_bars + extra_bars)
 
         plt.setp(rsi_ax.get_xticklabels(), rotation=0, horizontalalignment="center")
+        rsi_ax.axhline(70, color="#f23645", linestyle="--", linewidth=0.9, alpha=0.55)
+        rsi_ax.axhline(50, color="#787b86", linestyle=":", linewidth=0.8, alpha=0.35)
+        rsi_ax.axhline(30, color="#089981", linestyle="--", linewidth=0.9, alpha=0.55)
         rsi_ax.axhspan(30, 70, color="#9353d3", alpha=0.08, zorder=0)
 
         if setup.support_level > 0:
@@ -709,6 +734,22 @@ class ChartGenerator:
                 color="#f23645", fontsize=8, va="bottom",
             )
 
+        # Signature TradingView Large Background Watermark
+        main_ax.text(
+            0.50, 0.53, f"{base_sym}USDT · 1H",
+            transform=main_ax.transAxes,
+            fontsize=42, fontweight="heavy",
+            color="#ffffff", alpha=0.038,
+            ha="center", va="center", zorder=0,
+        )
+        main_ax.text(
+            0.50, 0.39, f"{self.watermark_text.upper()}",
+            transform=main_ax.transAxes,
+            fontsize=24, fontweight="bold",
+            color="#ffffff", alpha=0.048,
+            ha="center", va="center", zorder=0,
+        )
+
         if setup.direction in ("LONG", "SHORT"):
             box_start = max(0, n_bars - 6)
             box_end = n_bars + 6
@@ -721,59 +762,65 @@ class ChartGenerator:
             if setup.direction == "LONG":
                 tp_pct = ((tp_p - curr_p) / curr_p) * 100 if curr_p else 0
                 sl_pct = ((curr_p - sl_p) / curr_p) * 100 if curr_p else 0
-                main_ax.fill_between(x_coords, curr_p, tp_p, color="#089981", alpha=0.18, zorder=2)
-                main_ax.fill_between(x_coords, curr_p, sl_p, color="#f23645", alpha=0.18, zorder=2)
-                arrow_marker = "^"
-                sig_color = up_color
-                arrow_y = curr_p - (p_range * 0.03)
+                main_ax.fill_between(x_coords, curr_p, tp_p, color="#089981", alpha=0.22, zorder=2)
+                main_ax.fill_between(x_coords, curr_p, sl_p, color="#f23645", alpha=0.22, zorder=2)
             else:
                 tp_pct = ((curr_p - tp_p) / curr_p) * 100 if curr_p else 0
                 sl_pct = ((sl_p - curr_p) / curr_p) * 100 if curr_p else 0
-                main_ax.fill_between(x_coords, curr_p, tp_p, color="#089981", alpha=0.18, zorder=2)
-                main_ax.fill_between(x_coords, curr_p, sl_p, color="#f23645", alpha=0.18, zorder=2)
-                arrow_marker = "v"
-                sig_color = down_color
-                arrow_y = curr_p + (p_range * 0.03)
+                main_ax.fill_between(x_coords, curr_p, tp_p, color="#089981", alpha=0.22, zorder=2)
+                main_ax.fill_between(x_coords, curr_p, sl_p, color="#f23645", alpha=0.22, zorder=2)
 
+            # Solid boundary lines for official TradingView Position Tool
             main_ax.hlines(tp_p, box_start, box_end, colors="#089981", linestyles="-", linewidths=1.6, zorder=4)
             main_ax.hlines(curr_p, box_start, box_end, colors="#ffffff", linestyles="--", linewidths=1.2, zorder=4)
             main_ax.hlines(sl_p, box_start, box_end, colors="#f23645", linestyles="-", linewidths=1.6, zorder=4)
 
-            main_ax.scatter(
-                [n_bars - 1], [arrow_y],
-                color=sig_color, s=110, marker=arrow_marker, zorder=8, edgecolors="#ffffff", linewidths=1.0
-            )
+            # Circular anchor point on position tool (like real TradingView)
+            main_ax.scatter([box_start], [curr_p], color="#ffffff", s=35, zorder=8, edgecolors="#131722", linewidths=1.0)
 
             mid_x = (box_start + box_end) / 2
             main_ax.text(
-                mid_x, curr_p, f"  R:R {setup.risk_reward:.1f}  ",
-                color="#ffffff", fontsize=8, fontweight="bold", ha="center", va="center",
-                bbox=dict(boxstyle="round,pad=0.2", fc="#1e222d", ec="#2a2e39", lw=1),
-                zorder=6,
+                mid_x, curr_p, f"  Risk/Reward: {setup.risk_reward:.1f}  ",
+                color="#ffffff", fontsize=8.0, fontweight="bold", ha="center", va="center",
+                bbox=dict(boxstyle="round,pad=0.25", fc="#1e222d", ec="#2a2e39", lw=1),
+                zorder=7,
             )
 
             tp_sign = "+" if setup.direction == "LONG" else "-"
             sl_sign = "-" if setup.direction == "LONG" else "+"
 
+            # In-box target & stop labels
             main_ax.text(
-                1.002, tp_p, f" {fmt_price(tp_p)} ({tp_sign}{tp_pct:.1f}%)",
+                box_start + 0.3, tp_p, f" Target: {fmt_price(tp_p)} ({tp_sign}{tp_pct:.1f}%)",
+                color="#089981", fontsize=7.5, fontweight="bold", va="bottom" if setup.direction == "LONG" else "top",
+                zorder=7,
+            )
+            main_ax.text(
+                box_start + 0.3, sl_p, f" Stop: {fmt_price(sl_p)} ({sl_sign}{sl_pct:.1f}%)",
+                color="#f23645", fontsize=7.5, fontweight="bold", va="top" if setup.direction == "LONG" else "bottom",
+                zorder=7,
+            )
+
+            # Right axis rounded pills matching TradingView
+            main_ax.text(
+                1.002, tp_p, f" {fmt_price(tp_p)} ",
                 transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="square,pad=0.25", fc="#089981", ec="none"),
+                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                bbox=dict(boxstyle="round,pad=0.25", fc="#089981", ec="none"),
                 zorder=9,
             )
             main_ax.text(
-                1.002, curr_p, f" {fmt_price(curr_p)}",
+                1.002, curr_p, f" {fmt_price(curr_p)} ",
                 transform=main_ax.get_yaxis_transform(),
-                color="#131722", fontsize=8, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="square,pad=0.25", fc="#eaecef", ec="none"),
+                color="#131722", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                bbox=dict(boxstyle="round,pad=0.25", fc="#eaecef", ec="none"),
                 zorder=9,
             )
             main_ax.text(
-                1.002, sl_p, f" {fmt_price(sl_p)} ({sl_sign}{sl_pct:.1f}%)",
+                1.002, sl_p, f" {fmt_price(sl_p)} ",
                 transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="square,pad=0.25", fc="#f23645", ec="none"),
+                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                bbox=dict(boxstyle="round,pad=0.25", fc="#f23645", ec="none"),
                 zorder=9,
             )
 
