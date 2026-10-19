@@ -20,7 +20,7 @@ on:
           - both
           - binance
           - tradingview
-        default: 'both'
+        default: 'tradingview'
 
 concurrency:
   group: binance-square-posting
