@@ -309,8 +309,8 @@ class ChartGenerator:
         vol_ax = axlist[2]
 
         # Explicitly position main_ax and vol_ax to eliminate empty black voids on left and bottom!
-        chart_left = 0.065
-        chart_width = 0.850
+        chart_left = 0.020
+        chart_width = 0.895
         chart_bottom = 0.045
         vol_height = 0.145
         gap = 0.015
@@ -475,18 +475,18 @@ class ChartGenerator:
 
         # Menu icon (3 crisp lines) aligned with left
         for dy in (-0.005, 0.0, 0.005):
-            m_line = lines.Line2D([0.045, 0.057], [0.948 + dy, 0.948 + dy], transform=fig.transFigure, color=text_color, linewidth=1.8)
+            m_line = lines.Line2D([0.020, 0.032], [0.948 + dy, 0.948 + dy], transform=fig.transFigure, color=text_color, linewidth=1.8)
             fig.lines.append(m_line)
 
-        fig.text(0.065, 0.944, f"{base_sym}USDT", fontsize=13, color="#ffffff", fontweight="bold")
+        fig.text(0.040, 0.944, f"{base_sym}USDT", fontsize=13, color="#ffffff", fontweight="bold")
         fig.text(
-            0.155, 0.946, " Perp ", fontsize=7.5, color=text_muted, fontweight="bold",
+            0.130, 0.946, " Perp ", fontsize=7.5, color=text_muted, fontweight="bold",
             bbox=dict(boxstyle="round,pad=0.2", fc="#2b313a", ec="none"),
         )
 
-        fig.text(0.205, 0.945, fmt_price(curr_p, use_comma=True), fontsize=14, color=price_color, fontweight="bold")
+        fig.text(0.180, 0.945, fmt_price(curr_p, use_comma=True), fontsize=14, color=price_color, fontweight="bold")
         fig.text(
-            0.205, 0.916, f"${fmt_price(curr_p, use_comma=True)}  {chg_sign}{chg:.2f}%",
+            0.180, 0.916, f"${fmt_price(curr_p, use_comma=True)}  {chg_sign}{chg:.2f}%",
             fontsize=8.5, color=price_color, fontweight="bold"
         )
 
@@ -496,20 +496,20 @@ class ChartGenerator:
         tot_q_vol = tot_vol * curr_p
 
         # 5 Stats Columns
-        fig.text(0.345, 0.944, "Mark Price", fontsize=7.5, color=text_muted)
-        fig.text(0.345, 0.918, fmt_price(curr_p, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
+        fig.text(0.310, 0.944, "Mark Price", fontsize=7.5, color=text_muted)
+        fig.text(0.310, 0.918, fmt_price(curr_p, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
 
-        fig.text(0.425, 0.944, "24h High", fontsize=7.5, color=text_muted)
-        fig.text(0.425, 0.918, fmt_price(h_24h, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
+        fig.text(0.390, 0.944, "24h High", fontsize=7.5, color=text_muted)
+        fig.text(0.390, 0.918, fmt_price(h_24h, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
 
-        fig.text(0.500, 0.944, "24h Low", fontsize=7.5, color=text_muted)
-        fig.text(0.500, 0.918, fmt_price(l_24h, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
+        fig.text(0.465, 0.944, "24h Low", fontsize=7.5, color=text_muted)
+        fig.text(0.465, 0.918, fmt_price(l_24h, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
 
-        fig.text(0.575, 0.944, f"24h Vol({base_sym})", fontsize=7.5, color=text_muted)
-        fig.text(0.575, 0.918, fmt_compact_vol(tot_vol, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
+        fig.text(0.540, 0.944, f"24h Vol({base_sym})", fontsize=7.5, color=text_muted)
+        fig.text(0.540, 0.918, fmt_compact_vol(tot_vol, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
 
-        fig.text(0.670, 0.944, "24h Vol(USDT)", fontsize=7.5, color=text_muted)
-        fig.text(0.670, 0.918, fmt_compact_vol(tot_q_vol, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
+        fig.text(0.635, 0.944, "24h Vol(USDT)", fontsize=7.5, color=text_muted)
+        fig.text(0.635, 0.918, fmt_compact_vol(tot_q_vol, use_comma=True), fontsize=8.0, color=text_color, fontweight="bold")
 
         # Close icon ✕
         x_c, y_c, d = 0.965, 0.946, 0.005
@@ -517,9 +517,9 @@ class ChartGenerator:
         l2 = lines.Line2D([x_c - d, x_c + d], [y_c + d, y_c - d], transform=fig.transFigure, color=text_muted, linewidth=1.5)
         fig.lines.extend([l1, l2])
 
-        # Timeframe Selector Tab Bar aligned with chart left (0.065)
+        # Timeframe Selector Tab Bar aligned with chart left (0.020)
         tf_tabs = ["Time", "5m", "15m", "30m", "1h", "4h", "1d", "1w", "More v"]
-        x_cursor = 0.065
+        x_cursor = 0.020
         for tab in tf_tabs:
             is_active = (tab == "1h")
             t_color = "#ffffff" if is_active else text_muted
@@ -650,8 +650,8 @@ class ChartGenerator:
         rsi_ax = axlist[2]
 
         # Explicitly position axes to eliminate empty black voids on left and footer!
-        chart_left = 0.055
-        chart_width = 0.860
+        chart_left = 0.020
+        chart_width = 0.895
         chart_bottom = 0.050
         rsi_height = 0.150
         gap = 0.035
@@ -788,13 +788,13 @@ class ChartGenerator:
         if setup.direction in ("LONG", "SHORT"):
             dir_color = up_color if setup.direction == "LONG" else down_color
             fig.text(
-                0.265, 0.958, f"● {setup.direction} SETUP",
+                0.235, 0.958, f"● {setup.direction} SETUP",
                 fontsize=10, fontweight="bold", color=dir_color,
                 bbox=dict(boxstyle="round,pad=0.25", fc=f"{dir_color}25", ec=dir_color, lw=0.8),
             )
         else:
             fig.text(
-                0.265, 0.958, "● CONSOLIDATION / NEUTRAL",
+                0.235, 0.958, "● CONSOLIDATION / NEUTRAL",
                 fontsize=10, fontweight="bold", color="#f0b90b",
                 bbox=dict(boxstyle="round,pad=0.25", fc="#f0b90b25", ec="#f0b90b", lw=0.8),
             )
@@ -809,7 +809,7 @@ class ChartGenerator:
         fig.text(chart_left, 0.925, ohlc_str, fontsize=8.5, color=chg_color, fontweight="bold")
 
         ind_str = f"EMA(20): {fmt_price(setup.ma20_1h)}   EMA(50): {fmt_price(setup.ma50_1h)}   RSI(14): {setup.rsi_1h:.1f}"
-        fig.text(0.440, 0.925, ind_str, fontsize=8.5, color="#787b86", fontweight="bold")
+        fig.text(0.380, 0.925, ind_str, fontsize=8.5, color="#787b86", fontweight="bold")
 
         fig.text(chart_left, main_bottom - 0.022, f"Relative Strength Index (14) · {setup.rsi_1h:.1f}", fontsize=8, color="#9353d3", fontweight="bold")
 
