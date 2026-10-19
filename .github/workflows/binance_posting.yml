@@ -11,7 +11,7 @@ on:
         description: 'Force post (bypass coin cooldown)'
         required: false
         type: boolean
-        default: false
+        default: true
 
 concurrency:
   group: binance-square-posting
@@ -60,11 +60,12 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          if [ "${{ github.event.inputs.force_run }}" = "true" ]; then
-            echo "Running in force mode..."
-            python main.py --run-once --force
-          else
+          if [ "${{ github.event.inputs.force_run }}" = "false" ]; then
+            echo "Running in standard cooldown mode..."
             python main.py --run-once
+          else
+            echo "Running in high-priority force mode (bypassing coin cooldown)..."
+            python main.py --run-once --force
           fi
 
       - name: Save Updated SQLite Database Cache
