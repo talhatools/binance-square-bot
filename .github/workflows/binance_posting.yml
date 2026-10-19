@@ -12,6 +12,15 @@ on:
         required: false
         type: boolean
         default: true
+      chart_style:
+        description: 'Chart Visual Style (both=Mix/Alternate, binance=Competitor App, tradingview=Pro Dark)'
+        required: false
+        type: choice
+        options:
+          - both
+          - binance
+          - tradingview
+        default: 'both'
 
 concurrency:
   group: binance-square-posting
@@ -51,7 +60,7 @@ jobs:
           BINANCE_SQUARE_OPENAPI_KEY: ${{ secrets.BINANCE_SQUARE_OPENAPI_KEY }}
           DISABLE_CLAUDE_API: "true"
           DRY_RUN: "false"
-          CHART_STYLE: "both"
+          CHART_STYLE: ${{ github.event.inputs.chart_style || vars.CHART_STYLE || 'both' }}
           WATERMARK_TEXT: "Talha Sniper"
           MIN_24H_QUOTE_VOLUME: "10000000"
           COOLDOWN_HOURS: "2"
