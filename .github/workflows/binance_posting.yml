@@ -11,7 +11,7 @@ on:
         description: 'Force post (bypass coin cooldown)'
         required: false
         type: boolean
-        default: true
+        default: false
       chart_style:
         description: 'Chart Visual Style (both=Mix/Alternate, binance=Competitor App, tradingview=Pro Dark)'
         required: false
@@ -63,18 +63,18 @@ jobs:
           CHART_STYLE: ${{ github.event.inputs.chart_style || vars.CHART_STYLE || 'both' }}
           WATERMARK_TEXT: "Talha Sniper"
           MIN_24H_QUOTE_VOLUME: "10000000"
-          COOLDOWN_HOURS: "2"
+          COOLDOWN_HOURS: "3"
           DAILY_POST_LIMIT: "100"
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          if [ "${{ github.event.inputs.force_run }}" = "false" ]; then
-            echo "Running in standard cooldown mode..."
-            python main.py --run-once
-          else
+          if [ "${{ github.event.inputs.force_run }}" = "true" ]; then
             echo "Running in high-priority force mode (bypassing coin cooldown)..."
             python main.py --run-once --force
+          else
+            echo "Running in standard cooldown mode (guaranteeing different coins)..."
+            python main.py --run-once
           fi
 
       - name: Save Updated SQLite Database Cache

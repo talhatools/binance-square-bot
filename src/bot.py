@@ -81,8 +81,8 @@ class PostingBot:
         candidates = self.scanner.get_top_candidates(
             min_quote_volume=self.settings.min_24h_quote_volume,
             cooldown_hours=cooldown,
-            candidate_pool_limit=50,
-            top_n=25 if force else 20,
+            candidate_pool_limit=75,
+            top_n=30,
         )
         if not candidates:
             logger.info("Market Scanner: No eligible coins qualified this cycle. Skipping.")
