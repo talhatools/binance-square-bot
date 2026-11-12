@@ -184,6 +184,12 @@ def main():
         default=None,
         help="Chart visual style: 'binance' (Competitor App style), 'tradingview' (Pro dark style), or 'both' (alternating).",
     )
+    parser.add_argument(
+        "--coin",
+        type=str,
+        default=None,
+        help="Force post about a specific coin (e.g. BTC, ETH, SOL). Skips auto-scan.",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
@@ -255,8 +261,9 @@ def main():
 
     # 3. Run-once mode
     if args.run_once:
-        logger.info(f"Executing single posting cycle (--run-once, force={args.force})...")
-        result = bot.run_cycle(force=args.force)
+        coin_arg = args.coin.upper().strip() if args.coin else None
+        logger.info(f"Executing single posting cycle (--run-once, force={args.force}, coin={coin_arg or 'auto'})...")
+        result = bot.run_cycle(force=args.force, coin=coin_arg)
         tracker.evaluate_pending_signals()
         if result:
             print(f"\nCompleted cycle for {result['coin']} [{result['direction']}]. Status: {result['status']}")

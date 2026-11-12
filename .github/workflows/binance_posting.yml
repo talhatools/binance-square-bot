@@ -21,6 +21,11 @@ on:
           - binance
           - tradingview
         default: 'tradingview'
+      coin:
+        description: 'Specific coin to post (e.g. BTC, ETH, SOL, XRP). Leave empty for auto-scan.'
+        required: false
+        type: string
+        default: ''
 
 concurrency:
   group: binance-square-posting
@@ -69,7 +74,11 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          if [ "${{ github.event.inputs.force_run }}" = "true" ]; then
+          COIN_INPUT="${{ github.event.inputs.coin }}"
+          if [ -n "$COIN_INPUT" ]; then
+            echo "Running in SPECIFIC COIN mode: $COIN_INPUT (force mode auto-enabled)..."
+            python main.py --run-once --force --coin "$COIN_INPUT"
+          elif [ "${{ github.event.inputs.force_run }}" = "true" ]; then
             echo "Running in high-priority force mode (bypassing coin cooldown)..."
             python main.py --run-once --force
           else

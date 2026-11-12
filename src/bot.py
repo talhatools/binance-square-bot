@@ -48,11 +48,12 @@ class PostingBot:
             telegram_chat_id=settings.telegram_chat_id,
         )
 
-    def run_cycle(self, force: bool = False) -> Optional[Dict[str, Any]]:
+    def run_cycle(self, force: bool = False, coin: str = None) -> Optional[Dict[str, Any]]:
         """
         Executes one full iteration of the automated posting pipeline:
         1. Enforces daily posting limit (max 100/day).
         2. Scans Binance market & scores coins (skips cooldown coins unless force=True).
+           OR uses a specific coin if provided via --coin argument.
         3. Fetches 1h & 4h klines and performs rule-based technical analysis.
         4. Validates setup direction: skips if NO_TRADE.
         5. Generates dark-theme candlestick chart PNG with watermark.
@@ -63,7 +64,9 @@ class PostingBot:
         logger.info("=" * 60)
         logger.info("Starting Automated Binance Square Posting Cycle...")
         logger.info(f"Mode: {'DRY_RUN (Simulation)' if self.settings.dry_run else 'LIVE POSTING'}")
-        if force:
+        if coin:
+            logger.info(f"Specific Coin Mode: Posting about {coin} (auto-scan skipped).")
+        elif force:
             logger.info("Force mode active: ignoring cooldown to prioritize immediate post creation.")
 
         # 1. Daily Post Limit Check
@@ -78,12 +81,21 @@ class PostingBot:
 
         # 2. Pick Top Promising Candidates (up to 20-25 candidates across pool)
         cooldown = 0.0 if force else self.settings.cooldown_hours
-        candidates = self.scanner.get_top_candidates(
-            min_quote_volume=self.settings.min_24h_quote_volume,
-            cooldown_hours=cooldown,
-            candidate_pool_limit=75,
-            top_n=30,
-        )
+
+        if coin:
+            # Specific coin mode: skip market scanner, go straight to this coin
+            symbol = coin.upper().strip()
+            if not symbol.endswith("USDT"):
+                symbol = symbol + "USDT"
+            logger.info(f"Specific coin requested: {symbol} — skipping market scan.")
+            candidates = [{"symbol": symbol, "score": 100.0, "metrics": {}}]
+        else:
+            candidates = self.scanner.get_top_candidates(
+                min_quote_volume=self.settings.min_24h_quote_volume,
+                cooldown_hours=cooldown,
+                candidate_pool_limit=75,
+                top_n=30,
+            )
         if not candidates:
             logger.info("Market Scanner: No eligible coins qualified this cycle. Skipping.")
             return None
