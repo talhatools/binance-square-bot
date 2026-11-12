@@ -5,15 +5,15 @@
 Welcome! Follow these 3 simple steps to start using the bot:
 
 --------------------------------------------------------------------------------
-STEP 1: ADD YOUR BINANCE SQUARE KEY
+STEP 1: QUICK 1-MINUTE SETUP WIZARD (RECOMMENDED)
 --------------------------------------------------------------------------------
-1. Open the file named ".env" with Notepad.
-2. Put your Binance Square OpenAPI key on line 8:
-   BINANCE_SQUARE_OPENAPI_KEY=your_key_here
-3. Make sure DRY_RUN=false is set on line 21:
-   DRY_RUN=false
-4. Save the file (Ctrl + S).
+1. Double-click the file named "setup.bat".
+2. Paste your Binance Square OpenAPI Key.
+3. Enter your Channel/Brand Name for chart watermark.
+4. Select your preferred posting interval (e.g. 15 or 30 minutes).
+5. Done! The wizard configures everything automatically.
 
+*(Alternative Manual Method: Open ".env" in Notepad, set your BINANCE_SQUARE_OPENAPI_KEY, and save).*
 *(To get your key: Binance.com -> Square -> Creator Center -> OpenAPI)*
 *(Only enable POSTING permission. Never enable Trading or Withdrawal).*
 

@@ -89,6 +89,50 @@ def print_daily_summary(settings):
     notifier.notify_daily_summary(summary)
 
 
+def check_or_prompt_api_key(settings, logger):
+    """Ensures Binance Square API key is provided before attempting live publishing."""
+    if settings.dry_run:
+        return
+
+    invalid_values = ("", "your_key_here", "your_binance_square_openapi_key_here")
+    curr_key = settings.square_openapi_key.strip()
+    if not curr_key or curr_key in invalid_values:
+        print("\n" + "=" * 65)
+        print("  ⚠️  BINANCE SQUARE OPENAPI KEY NOT CONFIGURED")
+        print("=" * 65)
+        print("To publish live posts, the bot needs your Binance Square OpenAPI Key.")
+        print("Get your key: Binance.com -> Square -> Creator Center -> OpenAPI\n")
+
+        if sys.stdin and hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
+            try:
+                entered = input("Enter your Binance Square OpenAPI Key now (or press ENTER to exit): ").strip()
+                if entered and entered not in invalid_values:
+                    settings.square_openapi_key = entered
+                    env_file = settings.base_dir / ".env"
+                    lines = []
+                    if env_file.exists():
+                        with open(env_file, "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+                    updated = False
+                    for i, l in enumerate(lines):
+                        if l.strip().startswith("BINANCE_SQUARE_OPENAPI_KEY="):
+                            lines[i] = f"BINANCE_SQUARE_OPENAPI_KEY={entered}\n"
+                            updated = True
+                            break
+                    if not updated:
+                        lines.append(f"\nBINANCE_SQUARE_OPENAPI_KEY={entered}\n")
+                    with open(env_file, "w", encoding="utf-8") as f:
+                        f.writelines(lines)
+                    print("✅ Key saved to .env! Starting bot now...\n")
+                    return
+            except (KeyboardInterrupt, EOFError):
+                pass
+
+        print("❌ Cannot proceed in live mode without a valid API key.")
+        print("👉 Please double-click 'setup.bat' or add your key to '.env' file.\n")
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Automated Binance Square Posting Bot - Talha Sniper"
@@ -154,6 +198,10 @@ def main():
 
     setup_logging(settings.logs_dir, settings.log_level)
     logger = logging.getLogger("main")
+
+    is_info_mode = args.summary or args.stats or args.history or args.track_signals
+    if not is_info_mode:
+        check_or_prompt_api_key(settings, logger)
 
     logger.info("Initializing Binance Square Posting Bot...")
     bot = PostingBot(settings)

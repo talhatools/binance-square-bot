@@ -57,16 +57,17 @@ For complete beginners, you do NOT need to type any code to run the bot:
 ### Step 1: Open the Bot Folder
 Open `binance automation` on your Desktop.
 
-### Step 2: Add Your Binance Square Key in `.env`
-1. Open the `.env` file using **Notepad**.
-2. Paste your Binance Square API key:
-   ```env
-   BINANCE_SQUARE_OPENAPI_KEY=your_key_here
-   DRY_RUN=false
-   ```
-3. Save the file (**Ctrl + S**).
+### Step 2: Run the 1-Minute Setup Wizard
+1. Double-click **`setup.bat`**.
+2. Enter your **Binance Square OpenAPI Key**.
+3. Type your **Channel / Brand Name** for the chart watermark.
+4. Select your preferred posting interval (e.g. 15 or 30 minutes).
+5. The wizard automatically validates your settings and configures `.env`!
+
+*(Alternative: You can also edit `.env` directly in Notepad to add your `BINANCE_SQUARE_OPENAPI_KEY`).*
 
 ### Step 3: Run With 1 Click!
+- **To configure settings anytime**: Double-click **`setup.bat`**.
 - **To start 24/7 Auto-Posting**: Double-click **`start_bot.bat`**.
 - **To post just 1 signal immediately**: Double-click **`run.bat`**.
 - **To view Win-Rate & Stats**: Double-click **`check_stats.bat`**.
