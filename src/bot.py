@@ -181,17 +181,30 @@ class PostingBot:
                 f"RSI(1h) = {candidate_setup.rsi_1h:.1f} | MA20 = {candidate_setup.ma20_1h:.4f} | R:R = {candidate_setup.risk_reward:.2f}"
             )
 
-            # Specific coin mode: force post even if direction is NO_TRADE
-            # Pick LONG if RSI > 50, else SHORT as best-guess direction
-            if coin and candidate_setup.direction == "NO_TRADE":
-                if candidate_setup.rsi_1h >= 50:
-                    candidate_setup.direction = "LONG"
-                else:
-                    candidate_setup.direction = "SHORT"
+            # Specific coin mode: ALWAYS post regardless of direction or R:R
+            # Force direction based on RSI if NO_TRADE, then recalculate proper levels
+            if coin and candidate_setup.direction != "LONG" and candidate_setup.direction != "SHORT":
+                forced_dir = "LONG" if candidate_setup.rsi_1h >= 50 else "SHORT"
+                candidate_setup.direction = forced_dir
                 logger.info(
-                    f"Specific coin mode: direction forced to {candidate_setup.direction} "
-                    f"based on RSI={candidate_setup.rsi_1h:.1f}"
+                    f"Specific coin mode: direction forced to {forced_dir} "
+                    f"(RSI={candidate_setup.rsi_1h:.1f}, R:R was {candidate_setup.risk_reward:.2f})"
                 )
+                # Recalculate entry/target/stop with relaxed R:R for forced mode
+                price = candidate_setup.current_price
+                if forced_dir == "LONG":
+                    candidate_setup.stop_loss = round(price * 0.97, 6)
+                    candidate_setup.target_price = round(price * 1.06, 6)
+                else:
+                    candidate_setup.stop_loss = round(price * 1.03, 6)
+                    candidate_setup.target_price = round(price * 0.94, 6)
+                risk = abs(price - candidate_setup.stop_loss)
+                reward = abs(candidate_setup.target_price - price)
+                candidate_setup.risk_reward = round(reward / risk, 2) if risk > 0 else 2.0
+                candidate_setup.reasons = [
+                    f"Specific coin requested by user — {forced_dir} bias (RSI: {candidate_setup.rsi_1h:.1f})",
+                    "Key levels calculated from current price structure."
+                ]
 
             if candidate_setup.direction in ("LONG", "SHORT"):
                 selected_candidate = candidate
