@@ -176,8 +176,8 @@ class MarketScanner:
         Scans all 24h USDT pairs, filters by volume, checks cooldown,
         scores candidates with 1h klines, and returns the top N ranked candidates.
         """
-        logger.info("Scanning Binance market for promising coins...")
-        usdt_pairs = self.client.get_usdt_pairs_24h(min_quote_volume=min_quote_volume)
+        logger.info("Scanning Binance FUTURES market for promising trade setups...")
+        usdt_pairs = self.client.get_futures_pairs_24h(min_quote_volume=min_quote_volume)
 
         if not usdt_pairs:
             logger.warning("No USDT pairs found meeting the volume requirement.")

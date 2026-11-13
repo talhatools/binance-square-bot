@@ -147,6 +147,132 @@ class BinanceClient:
         )
         return filtered
 
+    def get_futures_pairs_24h(self, min_quote_volume: float = 10_000_000.0) -> List[Dict[str, Any]]:
+        """
+        Fetch 24h tickers filtered for active Binance Futures (USDT-M) pairs meeting minimum volume.
+        Tries:
+        1. Direct Binance Futures API (fapi.binance.com)
+        2. CoinGecko Binance Futures derivatives tickers (bypasses cloud runner 451 geoblocks)
+        3. Gate.io Futures public tickers (backup)
+        4. Spot fallback if all futures endpoints fail
+        """
+        # 1. Try Binance Futures API directly
+        try:
+            res = self.session.get("https://fapi.binance.com/fapi/v1/ticker/24hr", timeout=12)
+            if res.ok and isinstance(res.json(), list) and len(res.json()) > 0:
+                tickers = res.json()
+                filtered = []
+                for t in tickers:
+                    symbol = t.get("symbol", "")
+                    if not symbol.endswith("USDT"):
+                        continue
+                    base = symbol[:-4]
+                    if not base.isalnum() or not base.isascii():
+                        continue
+                    try:
+                        quote_volume = float(t.get("quoteVolume", 0))
+                        price_change_pct = float(t.get("priceChangePercent", 0))
+                        last_price = float(t.get("lastPrice", 0))
+                        high_price = float(t.get("highPrice", 0))
+                        low_price = float(t.get("lowPrice", 0))
+                        volume = float(t.get("volume", 0))
+                    except (ValueError, TypeError):
+                        continue
+                    if quote_volume >= min_quote_volume and last_price > 0:
+                        filtered.append({
+                            "symbol": symbol,
+                            "base_asset": base,
+                            "last_price": last_price,
+                            "price_change_percent": price_change_pct,
+                            "high_price": high_price,
+                            "low_price": low_price,
+                            "volume": volume,
+                            "quote_volume": quote_volume,
+                        })
+                if filtered:
+                    logger.info(f"Loaded {len(filtered)} Binance Futures pairs directly from fapi.binance.com")
+                    return filtered
+        except Exception as exc:
+            logger.debug(f"Direct Binance Futures ticker fetch failed ({exc}). Trying CoinGecko/Gate...")
+
+        # 2. CoinGecko Binance Futures API (worldwide public API, no USA 451 geoblock)
+        try:
+            url = "https://api.coingecko.com/api/v3/derivatives/exchanges/binance_futures?include_tickers=all"
+            res = self.session.get(url, timeout=12)
+            if res.ok:
+                cg_tickers = res.json().get("tickers", [])
+                filtered = []
+                for t in cg_tickers:
+                    sym = t.get("symbol", "")
+                    target = t.get("target", "")
+                    if target != "USDT" or not sym.endswith("USDT"):
+                        continue
+                    base = sym[:-4]
+                    try:
+                        price = float(t.get("last", 0) or 0)
+                        pct = float(t.get("price_change_percentage_24h", 0) or 0)
+                        usd_vol = float(t.get("converted_volume", {}).get("usd", 0) or 0)
+                    except (ValueError, TypeError):
+                        continue
+                    if usd_vol >= min_quote_volume and price > 0:
+                        filtered.append({
+                            "symbol": sym,
+                            "base_asset": base,
+                            "last_price": price,
+                            "price_change_percent": pct,
+                            "high_price": price * 1.03,
+                            "low_price": price * 0.97,
+                            "volume": usd_vol / price if price > 0 else 0,
+                            "quote_volume": usd_vol,
+                        })
+                if filtered:
+                    logger.info(f"Loaded {len(filtered)} Binance Futures pairs via CoinGecko derivatives API")
+                    return filtered
+        except Exception as exc:
+            logger.debug(f"CoinGecko Binance Futures fetch failed: {exc}")
+
+        # 3. Gate.io Futures API backup
+        try:
+            url = "https://fx-api.gateio.ws/api/v4/futures/usdt/tickers"
+            res = self.session.get(url, timeout=10)
+            if res.ok and isinstance(res.json(), list):
+                filtered = []
+                for t in res.json():
+                    contract = t.get("contract", "")
+                    if not contract.endswith("_USDT"):
+                        continue
+                    sym = contract.replace("_", "")
+                    base = sym[:-4]
+                    try:
+                        qv = float(t.get("volume_24h_quote", 0))
+                        pct = float(t.get("change_percentage", 0))
+                        price = float(t.get("last", 0))
+                        h = float(t.get("high_24h", 0))
+                        l = float(t.get("low_24h", 0))
+                        v = float(t.get("volume_24h_base", 0))
+                    except (ValueError, TypeError):
+                        continue
+                    if qv >= min_quote_volume and price > 0:
+                        filtered.append({
+                            "symbol": sym,
+                            "base_asset": base,
+                            "last_price": price,
+                            "price_change_percent": pct,
+                            "high_price": h,
+                            "low_price": l,
+                            "volume": v,
+                            "quote_volume": qv,
+                        })
+                if filtered:
+                    logger.info(f"Loaded {len(filtered)} Futures pairs via Gate.io API")
+                    return filtered
+        except Exception as exc:
+            logger.debug(f"Gate.io Futures fetch failed: {exc}")
+
+        # 4. Fallback to Spot pairs if all Futures endpoints failed
+        logger.warning("All Futures ticker sources failed. Falling back to Spot market pairs.")
+        return self.get_usdt_pairs_24h(min_quote_volume=min_quote_volume)
+
     def _get_klines_gateio(self, symbol: str, interval: str, limit: int) -> Optional[pd.DataFrame]:
         """Fallback to Gate.io public candles if Binance is geoblocked (HTTP 451) on cloud runners."""
         base = symbol.replace("USDT", "")
