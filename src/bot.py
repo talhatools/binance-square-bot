@@ -50,32 +50,52 @@ class PostingBot:
 
     def _resolve_binance_symbol(self, symbol: str) -> Optional[str]:
         """
-        Validates that a USDT symbol exists on Binance.
+        Validates that a USDT symbol exists on Binance Spot or Futures.
         Tries exact match first, then '1000X' prefix variant (for meme coins like SHIB, PEPE, FLOKI).
-        Returns the correct symbol string, or None if not found.
+        Returns the correct symbol string, or None if not found anywhere.
         """
         try:
             all_tickers = self.client.get_24h_tickers()
             valid_symbols = {t["symbol"] for t in all_tickers}
 
-            # 1. Exact match (e.g. BTCUSDT, ETHUSDT, SOLUSDT)
+            # 1. Exact match on Spot (e.g. BTCUSDT, ETHUSDT, SOLUSDT)
             if symbol in valid_symbols:
                 return symbol
 
-            # 2. Try 1000X prefix variant (e.g. SHIBUSDT -> 1000SHIBUSDT)
+            # 2. Try 1000X prefix variant on Spot (e.g. SHIBUSDT -> 1000SHIBUSDT)
             base = symbol[:-4]  # strip USDT
             alt_symbol = f"1000{base}USDT"
             if alt_symbol in valid_symbols:
                 logger.info(f"Coin resolved: {symbol} -> {alt_symbol} (Binance 1000x prefix)")
                 return alt_symbol
 
-            # 3. Not found
-            logger.warning(f"Symbol {symbol} and {alt_symbol} not found in Binance USDT pairs.")
-            return None
+            # 3. Try Futures exchange info (coins like BTW may only be on Futures/Perp)
+            try:
+                orig_urls = self.client.base_urls
+                self.client.base_urls = ["https://fapi.binance.com"]
+                futures_info = self.client._request("/fapi/v1/exchangeInfo", timeout=15.0)
+                self.client.base_urls = orig_urls
+                futures_symbols = {s["symbol"] for s in futures_info.get("symbols", [])}
+                if symbol in futures_symbols:
+                    logger.info(f"Coin {symbol} found on Futures (not Spot) — using Futures data.")
+                    return symbol
+                if alt_symbol in futures_symbols:
+                    logger.info(f"Coin resolved on Futures: {symbol} -> {alt_symbol}")
+                    return alt_symbol
+            except Exception as fe:
+                self.client.base_urls = orig_urls
+                logger.warning(f"Could not check Futures exchange info: {fe}")
+
+            # 4. Not found anywhere — return as-is and let it fail with clear error
+            logger.warning(
+                f"'{symbol}' not found on Binance Spot or Futures. "
+                f"Check exact ticker at binance.com/trade"
+            )
+            # Return symbol anyway — klines fetch will give the actual error
+            return symbol
 
         except Exception as exc:
             logger.warning(f"Could not validate symbol {symbol} against Binance: {exc}")
-            # Fallback: return as-is and let klines fetch fail with a clear error
             return symbol
 
     def run_cycle(self, force: bool = False, coin: str = None) -> Optional[Dict[str, Any]]:

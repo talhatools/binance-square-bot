@@ -140,14 +140,37 @@ class BinanceClient:
     ) -> pd.DataFrame:
         """
         Fetch OHLCV candlestick data for a symbol and interval.
+        Tries Spot API first, falls back to Futures API (for coins like BTW, newer listings).
         Intervals: '1h', '4h', '1d', etc.
         Returns a clean pandas DataFrame indexed by UTC datetime.
         """
         params = {"symbol": symbol.upper(), "interval": interval, "limit": limit}
-        raw_candles = self._request("/api/v3/klines", params=params)
+
+        # Try Spot first, then Futures as fallback
+        raw_candles = None
+        last_error = None
+
+        # Spot endpoint
+        try:
+            raw_candles = self._request("/api/v3/klines", params=params)
+        except Exception as exc:
+            last_error = exc
+            logger.warning(f"Spot klines failed for {symbol} ({exc}). Trying Futures endpoint...")
+
+        # Futures endpoint fallback (for coins only listed on Futures/Perpetual)
+        if not raw_candles:
+            orig_urls = self.base_urls
+            try:
+                self.base_urls = ["https://fapi.binance.com"]
+                raw_candles = self._request("/fapi/v1/klines", params=params)
+                logger.info(f"Using Futures klines for {symbol}")
+            except Exception as exc:
+                last_error = exc
+            finally:
+                self.base_urls = orig_urls
 
         if not raw_candles:
-            raise ValueError(f"No kline data returned for {symbol} on {interval}")
+            raise ValueError(f"No kline data for {symbol} on Spot or Futures: {last_error}")
 
         # Binance Kline Format:
         # [0: Open time, 1: Open, 2: High, 3: Low, 4: Close, 5: Volume, 6: Close time, ...]
