@@ -7,10 +7,10 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Primary and alternative public endpoints for redundancy
+# Primary and alternative public endpoints for redundancy (data-api.binance.vision has no USA 451 geoblock)
 BINANCE_PUBLIC_BASE_URLS = [
-    "https://api.binance.com",
     "https://data-api.binance.vision",
+    "https://api.binance.com",
     "https://api1.binance.com",
     "https://api2.binance.com",
     "https://api3.binance.com",
@@ -54,6 +54,18 @@ class BinanceClient:
                 response = self.session.get(url, params=params, timeout=req_timeout)
                 response.raise_for_status()
                 return response.json()
+            except requests.HTTPError as exc:
+                last_error = exc
+                status = exc.response.status_code if exc.response is not None else 0
+                if status in (400, 451):
+                    # 400 = invalid symbol, 451 = geoblock. Retrying the same endpoint with delay is useless.
+                    logger.debug(f"Binance API {url} returned HTTP {status}: skipping retry delay.")
+                    continue
+                delay = self.retry_delay_base * (2 ** attempt)
+                logger.warning(
+                    f"Binance API request to {url} failed: {exc}. Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
             except (requests.RequestException, ValueError) as exc:
                 last_error = exc
                 delay = self.retry_delay_base * (2 ** attempt)
@@ -135,59 +147,138 @@ class BinanceClient:
         )
         return filtered
 
+    def _get_klines_gateio(self, symbol: str, interval: str, limit: int) -> Optional[pd.DataFrame]:
+        """Fallback to Gate.io public candles if Binance is geoblocked (HTTP 451) on cloud runners."""
+        base = symbol.replace("USDT", "")
+        pairs = [f"{base}_USDT", f"1000{base}_USDT"]
+        endpoints = [
+            "spot/candlesticks?currency_pair=",
+            "futures/usdt/candlesticks?contract=",
+        ]
+        for pair in pairs:
+            for ep in endpoints:
+                try:
+                    url = f"https://api.gateio.ws/api/v4/{ep}{pair}&interval={interval}&limit={limit}"
+                    res = self.session.get(url, timeout=8)
+                    if res.ok:
+                        data = res.json()
+                        if isinstance(data, list) and len(data) > 0 and len(data[0]) >= 7:
+                            rows = []
+                            for c in data:
+                                rows.append({
+                                    "timestamp": pd.to_datetime(int(c[0]), unit="s", utc=True),
+                                    "open": float(c[5]),
+                                    "high": float(c[3]),
+                                    "low": float(c[4]),
+                                    "close": float(c[2]),
+                                    "volume": float(c[6]),
+                                })
+                            df = pd.DataFrame(rows).set_index("timestamp").sort_index()
+                            logger.info(f"Successfully fetched {len(df)} candles for {symbol} from Gate.io ({ep.split('/')[0]})")
+                            return df
+                except Exception as e:
+                    logger.debug(f"Gate.io {ep}{pair} failed: {e}")
+        return None
+
+    def _get_klines_mexc(self, symbol: str, interval: str, limit: int) -> Optional[pd.DataFrame]:
+        """Fallback to MEXC public candles if Binance and Gate.io fail."""
+        mexc_interval = "60m" if interval == "1h" else ("4h" if interval == "4h" else interval)
+        base = symbol.replace("USDT", "")
+        for s in [f"{base}USDT", f"1000{base}USDT", symbol]:
+            try:
+                url = f"https://api.mexc.com/api/v3/klines?symbol={s}&interval={mexc_interval}&limit={limit}"
+                res = self.session.get(url, timeout=8)
+                if res.ok:
+                    data = res.json()
+                    if isinstance(data, list) and len(data) > 0 and len(data[0]) >= 6:
+                        rows = []
+                        for c in data:
+                            rows.append({
+                                "timestamp": pd.to_datetime(c[0], unit="ms", utc=True),
+                                "open": float(c[1]),
+                                "high": float(c[2]),
+                                "low": float(c[3]),
+                                "close": float(c[4]),
+                                "volume": float(c[5]),
+                            })
+                        df = pd.DataFrame(rows).set_index("timestamp").sort_index()
+                        logger.info(f"Successfully fetched {len(df)} candles for {symbol} from MEXC")
+                        return df
+            except Exception as e:
+                logger.debug(f"MEXC {s} failed: {e}")
+        return None
+
     def get_klines(
         self, symbol: str, interval: str = "1h", limit: int = 100
     ) -> pd.DataFrame:
         """
         Fetch OHLCV candlestick data for a symbol and interval.
-        Tries Spot API first, falls back to Futures API (for coins like BTW, newer listings).
-        Intervals: '1h', '4h', '1d', etc.
+        Order of resolution:
+        1. Binance Spot API (via data-api.binance.vision / api.binance.com)
+        2. Binance Futures API (via fapi.binance.com)
+        3. Gate.io Public API (worldwide fallback, bypasses USA 451 geoblocks)
+        4. MEXC Public API (secondary worldwide fallback)
         Returns a clean pandas DataFrame indexed by UTC datetime.
         """
-        params = {"symbol": symbol.upper(), "interval": interval, "limit": limit}
+        clean_symbol = symbol.replace("$", "").replace("/", "").replace("-", "").strip().upper()
+        if not clean_symbol.endswith("USDT"):
+            clean_symbol = clean_symbol + "USDT"
+        symbol = clean_symbol
 
-        # Try Spot first, then Futures as fallback
+        params = {"symbol": symbol, "interval": interval, "limit": limit}
+
+        # 1. Try Binance Spot
         raw_candles = None
         last_error = None
 
-        # Spot endpoint
         try:
             raw_candles = self._request("/api/v3/klines", params=params)
         except Exception as exc:
             last_error = exc
-            logger.warning(f"Spot klines failed for {symbol} ({exc}). Trying Futures endpoint...")
+            logger.debug(f"Spot klines failed for {symbol}: {exc}")
 
-        # Futures endpoint fallback (for coins only listed on Futures/Perpetual)
+        # 2. Try Binance Futures (for coins listed on Futures / Perpetual)
         if not raw_candles:
             orig_urls = self.base_urls
             try:
                 self.base_urls = ["https://fapi.binance.com"]
                 raw_candles = self._request("/fapi/v1/klines", params=params)
-                logger.info(f"Using Futures klines for {symbol}")
+                logger.info(f"Using Binance Futures klines for {symbol}")
             except Exception as exc:
                 last_error = exc
+                logger.debug(f"Binance Futures klines failed for {symbol}: {exc}")
             finally:
                 self.base_urls = orig_urls
 
-        if not raw_candles:
-            raise ValueError(f"No kline data for {symbol} on Spot or Futures: {last_error}")
+        # If Binance returned candles, parse them
+        if raw_candles:
+            rows = []
+            for c in raw_candles:
+                rows.append(
+                    {
+                        "timestamp": pd.to_datetime(c[0], unit="ms", utc=True),
+                        "open": float(c[1]),
+                        "high": float(c[2]),
+                        "low": float(c[3]),
+                        "close": float(c[4]),
+                        "volume": float(c[5]),
+                    }
+                )
+            df = pd.DataFrame(rows)
+            df.set_index("timestamp", inplace=True)
+            df.sort_index(inplace=True)
+            return df
 
-        # Binance Kline Format:
-        # [0: Open time, 1: Open, 2: High, 3: Low, 4: Close, 5: Volume, 6: Close time, ...]
-        rows = []
-        for c in raw_candles:
-            rows.append(
-                {
-                    "timestamp": pd.to_datetime(c[0], unit="ms", utc=True),
-                    "open": float(c[1]),
-                    "high": float(c[2]),
-                    "low": float(c[3]),
-                    "close": float(c[4]),
-                    "volume": float(c[5]),
-                }
-            )
+        # 3. Fallback to Gate.io (works globally on GitHub Actions runners without HTTP 451 geoblocks)
+        logger.info(f"Binance klines failed for {symbol} ({last_error}). Trying Gate.io fallback...")
+        df_gate = self._get_klines_gateio(symbol, interval, limit)
+        if df_gate is not None and not df_gate.empty:
+            return df_gate
 
-        df = pd.DataFrame(rows)
-        df.set_index("timestamp", inplace=True)
-        df.sort_index(inplace=True)
-        return df
+        # 4. Fallback to MEXC
+        logger.info(f"Gate.io klines failed for {symbol}. Trying MEXC fallback...")
+        df_mexc = self._get_klines_mexc(symbol, interval, limit)
+        if df_mexc is not None and not df_mexc.empty:
+            return df_mexc
+
+        raise ValueError(f"No kline data available for {symbol} across Binance, Gate.io, and MEXC: {last_error}")

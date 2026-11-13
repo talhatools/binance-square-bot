@@ -52,8 +52,13 @@ class PostingBot:
         """
         Validates that a USDT symbol exists on Binance Spot or Futures.
         Tries exact match first, then '1000X' prefix variant (for meme coins like SHIB, PEPE, FLOKI).
-        Returns the correct symbol string, or None if not found anywhere.
+        Returns the correct symbol string, or fallback symbol if not verifiable.
         """
+        clean = symbol.replace("$", "").replace("/", "").replace("-", "").strip().upper()
+        if not clean.endswith("USDT"):
+            clean = clean + "USDT"
+        symbol = clean
+
         try:
             all_tickers = self.client.get_24h_tickers()
             valid_symbols = {t["symbol"] for t in all_tickers}
@@ -69,11 +74,11 @@ class PostingBot:
                 logger.info(f"Coin resolved: {symbol} -> {alt_symbol} (Binance 1000x prefix)")
                 return alt_symbol
 
-            # 3. Try Futures exchange info (coins like BTW may only be on Futures/Perp)
+            # 3. Try Futures exchange info
             try:
                 orig_urls = self.client.base_urls
                 self.client.base_urls = ["https://fapi.binance.com"]
-                futures_info = self.client._request("/fapi/v1/exchangeInfo", timeout=15.0)
+                futures_info = self.client._request("/fapi/v1/exchangeInfo", timeout=10.0)
                 self.client.base_urls = orig_urls
                 futures_symbols = {s["symbol"] for s in futures_info.get("symbols", [])}
                 if symbol in futures_symbols:
@@ -84,18 +89,12 @@ class PostingBot:
                     return alt_symbol
             except Exception as fe:
                 self.client.base_urls = orig_urls
-                logger.warning(f"Could not check Futures exchange info: {fe}")
+                logger.debug(f"Futures exchange info check skipped: {fe}")
 
-            # 4. Not found anywhere — return as-is and let it fail with clear error
-            logger.warning(
-                f"'{symbol}' not found on Binance Spot or Futures. "
-                f"Check exact ticker at binance.com/trade"
-            )
-            # Return symbol anyway — klines fetch will give the actual error
             return symbol
 
         except Exception as exc:
-            logger.warning(f"Could not validate symbol {symbol} against Binance: {exc}")
+            logger.debug(f"Could not validate symbol {symbol} against Binance: {exc}")
             return symbol
 
     def run_cycle(self, force: bool = False, coin: str = None) -> Optional[Dict[str, Any]]:
@@ -134,19 +133,12 @@ class PostingBot:
 
         if coin:
             # Specific coin mode: skip market scanner, go straight to this coin
-            symbol = coin.upper().strip()
-            if not symbol.endswith("USDT"):
-                symbol = symbol + "USDT"
+            clean_coin = coin.replace("$", "").replace("/", "").replace("-", "").strip().upper()
+            if not clean_coin.endswith("USDT"):
+                clean_coin = clean_coin + "USDT"
 
             # Auto-detect correct Binance symbol (some coins use 1000X prefix e.g. 1000SHIBUSDT)
-            symbol = self._resolve_binance_symbol(symbol)
-            if not symbol:
-                logger.error(
-                    f"Coin '{coin}' not found on Binance as a USDT pair. "
-                    "Please use exact Binance symbol (e.g. BTC, ETH, SOL, 1000SHIB)."
-                )
-                return None
-
+            symbol = self._resolve_binance_symbol(clean_coin) or clean_coin
             logger.info(f"Specific coin requested: {symbol} — skipping market scan.")
             candidates = [{"symbol": symbol, "score": 100.0, "metrics": {}}]
         else:
