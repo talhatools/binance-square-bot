@@ -48,6 +48,36 @@ class PostingBot:
             telegram_chat_id=settings.telegram_chat_id,
         )
 
+    def _resolve_binance_symbol(self, symbol: str) -> Optional[str]:
+        """
+        Validates that a USDT symbol exists on Binance.
+        Tries exact match first, then '1000X' prefix variant (for meme coins like SHIB, PEPE, FLOKI).
+        Returns the correct symbol string, or None if not found.
+        """
+        try:
+            all_tickers = self.client.get_24h_tickers()
+            valid_symbols = {t["symbol"] for t in all_tickers}
+
+            # 1. Exact match (e.g. BTCUSDT, ETHUSDT, SOLUSDT)
+            if symbol in valid_symbols:
+                return symbol
+
+            # 2. Try 1000X prefix variant (e.g. SHIBUSDT -> 1000SHIBUSDT)
+            base = symbol[:-4]  # strip USDT
+            alt_symbol = f"1000{base}USDT"
+            if alt_symbol in valid_symbols:
+                logger.info(f"Coin resolved: {symbol} -> {alt_symbol} (Binance 1000x prefix)")
+                return alt_symbol
+
+            # 3. Not found
+            logger.warning(f"Symbol {symbol} and {alt_symbol} not found in Binance USDT pairs.")
+            return None
+
+        except Exception as exc:
+            logger.warning(f"Could not validate symbol {symbol} against Binance: {exc}")
+            # Fallback: return as-is and let klines fetch fail with a clear error
+            return symbol
+
     def run_cycle(self, force: bool = False, coin: str = None) -> Optional[Dict[str, Any]]:
         """
         Executes one full iteration of the automated posting pipeline:
@@ -87,6 +117,16 @@ class PostingBot:
             symbol = coin.upper().strip()
             if not symbol.endswith("USDT"):
                 symbol = symbol + "USDT"
+
+            # Auto-detect correct Binance symbol (some coins use 1000X prefix e.g. 1000SHIBUSDT)
+            symbol = self._resolve_binance_symbol(symbol)
+            if not symbol:
+                logger.error(
+                    f"Coin '{coin}' not found on Binance as a USDT pair. "
+                    "Please use exact Binance symbol (e.g. BTC, ETH, SOL, 1000SHIB)."
+                )
+                return None
+
             logger.info(f"Specific coin requested: {symbol} — skipping market scan.")
             candidates = [{"symbol": symbol, "score": 100.0, "metrics": {}}]
         else:
