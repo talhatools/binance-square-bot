@@ -121,6 +121,18 @@ class PostingBot:
                 f"RSI(1h) = {candidate_setup.rsi_1h:.1f} | MA20 = {candidate_setup.ma20_1h:.4f} | R:R = {candidate_setup.risk_reward:.2f}"
             )
 
+            # Specific coin mode: force post even if direction is NO_TRADE
+            # Pick LONG if RSI > 50, else SHORT as best-guess direction
+            if coin and candidate_setup.direction == "NO_TRADE":
+                if candidate_setup.rsi_1h >= 50:
+                    candidate_setup.direction = "LONG"
+                else:
+                    candidate_setup.direction = "SHORT"
+                logger.info(
+                    f"Specific coin mode: direction forced to {candidate_setup.direction} "
+                    f"based on RSI={candidate_setup.rsi_1h:.1f}"
+                )
+
             if candidate_setup.direction in ("LONG", "SHORT"):
                 selected_candidate = candidate
                 setup = candidate_setup
