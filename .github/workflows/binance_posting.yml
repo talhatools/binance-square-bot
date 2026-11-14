@@ -67,7 +67,7 @@ jobs:
           DRY_RUN: "false"
           CHART_STYLE: ${{ github.event.inputs.chart_style || vars.CHART_STYLE || 'both' }}
           WATERMARK_TEXT: ${{ vars.WATERMARK_TEXT || secrets.WATERMARK_TEXT || 'Talha Sniper' }}
-          MIN_24H_QUOTE_VOLUME: "10000000"
+          MIN_24H_QUOTE_VOLUME: "25000000"
           COOLDOWN_HOURS: "3"
           DAILY_POST_LIMIT: "100"
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}

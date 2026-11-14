@@ -84,7 +84,7 @@ class BinanceClient:
             raise ValueError("Expected a list of tickers from Binance 24hr API")
         return data
 
-    def get_usdt_pairs_24h(self, min_quote_volume: float = 10_000_000.0) -> List[Dict[str, Any]]:
+    def get_usdt_pairs_24h(self, min_quote_volume: float = 25_000_000.0) -> List[Dict[str, Any]]:
         """
         Fetch 24h tickers filtered for active USDT pairs meeting minimum quote volume.
         Excludes leveraged tokens (UP, DOWN, BULL, BEAR) and stablecoin pairs (USDC, FDUSD, etc.).
@@ -147,7 +147,7 @@ class BinanceClient:
         )
         return filtered
 
-    def get_futures_pairs_24h(self, min_quote_volume: float = 10_000_000.0) -> List[Dict[str, Any]]:
+    def get_futures_pairs_24h(self, min_quote_volume: float = 25_000_000.0) -> List[Dict[str, Any]]:
         """
         Fetch 24h tickers filtered for active Binance Futures (USDT-M) pairs meeting minimum volume.
         Tries:

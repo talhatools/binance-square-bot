@@ -68,7 +68,7 @@ class Settings:
         default_factory=lambda: get_int_env("POST_INTERVAL_MINUTES", 30)
     )
     min_24h_quote_volume: float = field(
-        default_factory=lambda: get_float_env("MIN_24H_QUOTE_VOLUME", 10_000_000.0)
+        default_factory=lambda: get_float_env("MIN_24H_QUOTE_VOLUME", 25_000_000.0)
     )
     cooldown_hours: float = field(
         default_factory=lambda: get_float_env("COOLDOWN_HOURS", 6.0)

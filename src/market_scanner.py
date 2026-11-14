@@ -167,7 +167,7 @@ class MarketScanner:
 
     def get_top_candidates(
         self,
-        min_quote_volume: float = 10_000_000.0,
+        min_quote_volume: float = 25_000_000.0,
         cooldown_hours: float = 6.0,
         candidate_pool_limit: int = 25,
         top_n: int = 5,
@@ -230,7 +230,7 @@ class MarketScanner:
 
     def pick_promising_coin(
         self,
-        min_quote_volume: float = 10_000_000.0,
+        min_quote_volume: float = 25_000_000.0,
         cooldown_hours: float = 6.0,
         top_candidates_limit: int = 25,
     ) -> Optional[Dict[str, Any]]:

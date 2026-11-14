@@ -25,8 +25,8 @@ def check_binance_api():
     print("[1/5] Testing Binance Public API...", end=" ", flush=True)
     try:
         client = BinanceClient(max_retries=2, timeout=6.0)
-        tickers = client.get_usdt_pairs_24h(min_quote_volume=10_000_000.0)
-        print(f"OK (Found {len(tickers)} active high-volume USDT pairs)")
+        tickers = client.get_futures_pairs_24h(min_quote_volume=25_000_000.0)
+        print(f"OK (Found {len(tickers)} active high-volume Futures pairs)")
         return True
     except Exception as e:
         print(f"FAILED ({e})")

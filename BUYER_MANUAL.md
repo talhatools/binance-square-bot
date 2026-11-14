@@ -144,8 +144,8 @@ WATERMARK_TEXT=Talha Sniper
 POST_INTERVAL_MINUTES=30
 
 # 3. Minimum 24h Volume Filter (in USDT)
-# Default is $10,000,000 to only trade liquid, safe crypto assets
-MIN_24H_QUOTE_VOLUME=10000000
+# Default is $25,000,000 to only trade liquid, safe crypto assets
+MIN_24H_QUOTE_VOLUME=25000000
 
 # 4. Deduplication Cooldown (in hours)
 # A coin will not be posted again within this duration (Default: 6 hours)
