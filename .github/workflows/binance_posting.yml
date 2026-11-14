@@ -13,14 +13,14 @@ on:
         type: boolean
         default: false
       chart_style:
-        description: 'Chart Visual Style (both=Mix/Alternate, binance=Competitor App, tradingview=Pro Dark)'
+        description: 'Chart Visual Style (binance=Real Binance App Screenshot, tradingview=Pro Dark, both=Mix)'
         required: false
         type: choice
         options:
-          - both
           - binance
           - tradingview
-        default: 'tradingview'
+          - both
+        default: 'binance'
       coin:
         description: 'Specific coin to post (e.g. BTC, ETH, SOL, XRP). Leave empty for auto-scan.'
         required: false
@@ -65,7 +65,7 @@ jobs:
           BINANCE_SQUARE_OPENAPI_KEY: ${{ secrets.BINANCE_SQUARE_OPENAPI_KEY }}
           DISABLE_CLAUDE_API: "true"
           DRY_RUN: "false"
-          CHART_STYLE: ${{ github.event.inputs.chart_style || vars.CHART_STYLE || 'both' }}
+          CHART_STYLE: ${{ github.event.inputs.chart_style || vars.CHART_STYLE || 'binance' }}
           WATERMARK_TEXT: ${{ vars.WATERMARK_TEXT || secrets.WATERMARK_TEXT || 'Talha Sniper' }}
           MIN_24H_QUOTE_VOLUME: "25000000"
           COOLDOWN_HOURS: "3"

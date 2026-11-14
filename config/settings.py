@@ -88,7 +88,7 @@ class Settings:
         default_factory=lambda: os.getenv("WATERMARK_TEXT", "Talha Sniper").strip()
     )
     chart_style: str = field(
-        default_factory=lambda: os.getenv("CHART_STYLE", "both").strip().lower()
+        default_factory=lambda: os.getenv("CHART_STYLE", "binance").strip().lower()
     )
 
     # Notifications & Alerts (Discord/Slack Webhook or Telegram Bot)
