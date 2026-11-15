@@ -175,13 +175,13 @@ class ChartGenerator:
         self,
         output_dir: Path | str = "charts",
         watermark_text: str = "Talha Sniper",
-        default_style: str = "sada",
+        default_style: str = "mobile",
     ):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.watermark_text = watermark_text
         self.default_style = default_style.lower()
-        self._style_cycle = itertools.cycle(["sada", "competitor", "tradingview"])
+        self._style_cycle = itertools.cycle(["mobile", "sada", "competitor", "tradingview"])
 
     def generate_chart(
         self,
@@ -192,8 +192,9 @@ class ChartGenerator:
     ) -> Path:
         """
         Generates a chart according to requested or alternating style:
-        - 'sada' / 'clean' (Pure, plain Binance screenshot - NO lines, NO logo)
-        - 'competitor' / 'binance' (Competitor style with trendlines, TP/SL levels, and watermark)
+        - 'mobile' / 'binance_mobile' (Authentic Binance Mobile App portrait screenshot)
+        - 'sada' / 'clean' (Pure landscape Binance screenshot - NO lines, NO logo)
+        - 'competitor' / 'binance' (Competitor landscape with trendlines, TP/SL levels, and watermark)
         - 'tradingview' (TradingView Pro dark style with RSI sub-panel)
         - 'both' / 'alternate' (Alternates automatically on each post)
         """
@@ -201,12 +202,279 @@ class ChartGenerator:
         if chosen_style in ("both", "alternate", "auto", "mix"):
             chosen_style = next(self._style_cycle)
 
-        if chosen_style in ("sada", "clean", "binance_clean", "pure", "raw", "sada_binance"):
+        if chosen_style in ("mobile", "binance_mobile", "phone", "portrait"):
+            return self._render_binance_mobile(setup, bars_count or 38, filename_prefix)
+        elif chosen_style in ("sada", "clean", "binance_clean", "pure", "raw", "desktop", "sada_desktop"):
             return self._render_binance_app(setup, bars_count or 52, filename_prefix, clean=True)
         elif chosen_style in ("binance_app", "binance", "competitor", "binance_competitor", "markup", "app"):
             return self._render_binance_app(setup, bars_count or 52, filename_prefix, clean=False)
         else:
             return self._render_tradingview_pro(setup, bars_count or 70, filename_prefix)
+
+    def _render_binance_mobile(
+        self,
+        setup: TradeSetup,
+        bars_count: int = 38,
+        filename_prefix: Optional[str] = None,
+    ) -> Path:
+        """
+        Renders authentic Binance Mobile App portrait screenshot (1024x2048, 1:2 ratio),
+        matching real phone display (top status/header, big price + 24h stats, timeframe tabs,
+        clean candlesticks with MA7/MA25, volume panel, and bottom Buy/Sell buttons).
+        """
+        full_df = setup.df_1h.copy()
+        full_df.rename(
+            columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
+            inplace=True,
+        )
+
+        effective_bars = min(bars_count, len(full_df))
+        df = full_df.tail(effective_bars).copy()
+
+        # Moving Averages on price candles
+        ma7 = df["Close"].rolling(7, min_periods=2).mean()
+        ma25 = df["Close"].rolling(25, min_periods=5).mean()
+
+        # Volume MAs: MA5 (yellow) and MA10 (purple)
+        vol_ma5 = df["Volume"].rolling(5, min_periods=2).mean()
+        vol_ma10 = df["Volume"].rolling(10, min_periods=3).mean()
+
+        # Binance Dark Colors
+        bg_color = "#181a20"
+        up_color = "#0ecb81"
+        down_color = "#f6465d"
+        text_color = "#eaecef"
+        text_muted = "#848e9c"
+        grid_color = "#22262e"
+
+        mc = mpf.make_marketcolors(
+            up=up_color,
+            down=down_color,
+            edge={"up": up_color, "down": down_color},
+            wick={"up": up_color, "down": down_color},
+            volume={"up": up_color, "down": down_color},
+        )
+
+        custom_style = mpf.make_mpf_style(
+            base_mpf_style="nightclouds",
+            marketcolors=mc,
+            facecolor=bg_color,
+            edgecolor=bg_color,
+            figcolor=bg_color,
+            gridcolor=grid_color,
+            gridstyle="-",
+            gridaxis="both",
+            rc={
+                "font.family": "sans-serif",
+                "font.sans-serif": ["Segoe UI", "Arial", "sans-serif"],
+                "font.size": 8.0,
+                "text.color": text_muted,
+                "axes.labelcolor": text_muted,
+                "axes.edgecolor": grid_color,
+                "xtick.color": text_muted,
+                "ytick.color": text_muted,
+                "grid.alpha": 0.5,
+            },
+        )
+
+        add_plots = [
+            mpf.make_addplot(ma7, color="#f0b90b", width=1.0, panel=0),
+            mpf.make_addplot(ma25, color="#e040fb", width=1.0, panel=0),
+            mpf.make_addplot(vol_ma5, color="#f0b90b", width=1.0, panel=1),
+            mpf.make_addplot(vol_ma10, color="#9c27b0", width=1.0, panel=1),
+        ]
+
+        # Calculate y-limits with padding
+        curr_p = setup.current_price
+        min_p = df["Low"].min()
+        max_p = df["High"].max()
+        p_range = max_p - min_p if max_p > min_p else max_p * 0.05
+        y_min = min_p - (p_range * 0.04)
+        y_max = max_p + (p_range * 0.04)
+
+        # Plot portrait figure (6.4 x 12.8 in = 1024 x 2048 px at 160 dpi)
+        fig, axlist = mpf.plot(
+            df,
+            type="candle",
+            style=custom_style,
+            volume=True,
+            addplot=add_plots,
+            ylim=(y_min, y_max),
+            returnfig=True,
+            figsize=(6.4, 12.8),
+            panel_ratios=(5.2, 1.0),
+            tight_layout=False,
+            ylabel="",
+            ylabel_lower="",
+        )
+
+        main_ax = axlist[0]
+        vol_ax = axlist[2]
+
+        chart_left = 0.030
+        chart_width = 0.935
+        vol_bottom = 0.100
+        vol_height = 0.095
+        main_bottom = 0.210
+        main_height = 0.635
+
+        main_ax.set_position([chart_left, main_bottom, chart_width, main_height])
+        vol_ax.set_position([chart_left, vol_bottom, chart_width, vol_height])
+
+        for ax in (main_ax, vol_ax):
+            ax.spines["top"].set_visible(False)
+            ax.spines["left"].set_visible(False)
+            ax.spines["bottom"].set_color(grid_color)
+            ax.spines["right"].set_color(grid_color)
+            ax.tick_params(axis="both", which="both", length=0)
+
+        main_ax.yaxis.tick_right()
+        main_ax.yaxis.set_label_position("right")
+        vol_ax.yaxis.tick_right()
+        vol_ax.yaxis.set_label_position("right")
+
+        n_bars = len(df)
+        main_ax.set_xlim(-0.5, n_bars + 3)
+        vol_ax.set_xlim(-0.5, n_bars + 3)
+
+        main_ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: fmt_price(x, use_comma=True)))
+        vol_ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: fmt_compact_vol(x, use_comma=True)))
+
+        # Timeline bar
+        plt.setp(vol_ax.get_xticklabels(), visible=False)
+        timeline_top = lines.Line2D([chart_left, chart_left + chart_width], [0.100, 0.100], transform=fig.transFigure, color=grid_color, linewidth=0.8)
+        fig.lines.append(timeline_top)
+
+        first_dt = df.index[0].strftime("%m-%d %H:%M")
+        mid_dt = df.index[len(df) // 2].strftime("%m-%d %H:%M")
+        last_dt = df.index[-1].strftime("%m-%d %H:%M")
+        fig.text(0.12, 0.082, first_dt, color=text_muted, fontsize=7.5, ha="center", va="center")
+        fig.text(0.50, 0.082, mid_dt, color=text_muted, fontsize=7.5, ha="center", va="center")
+        fig.text(0.85, 0.082, last_dt, color=text_muted, fontsize=7.5, ha="center", va="center")
+
+        # Top MA text inside main chart
+        last_ma7 = ma7.iloc[-1] if not np.isnan(ma7.iloc[-1]) else curr_p
+        last_ma25 = ma25.iloc[-1] if not np.isnan(ma25.iloc[-1]) else curr_p
+        main_ax.text(
+            0.015, 0.980, f"MA(7): {fmt_price(last_ma7, use_comma=True)}   ",
+            transform=main_ax.transAxes, color="#f0b90b", fontsize=7.5, fontweight="bold", va="top"
+        )
+        main_ax.text(
+            0.260, 0.980, f"MA(25): {fmt_price(last_ma25, use_comma=True)}",
+            transform=main_ax.transAxes, color="#e040fb", fontsize=7.5, fontweight="bold", va="top"
+        )
+
+        # Signature Binance High & Low price ticks
+        high_idx = int(df["High"].values.argmax())
+        high_val = float(df["High"].iloc[high_idx])
+        low_idx = int(df["Low"].values.argmin())
+        low_val = float(df["Low"].iloc[low_idx])
+
+        main_ax.text(
+            high_idx, high_val, f"- {fmt_price(high_val, use_comma=True)}",
+            color=text_color, fontsize=7.5, fontweight="bold", va="bottom", ha="left",
+        )
+        main_ax.text(
+            low_idx, low_val, f"- {fmt_price(low_val, use_comma=True)}",
+            color=text_color, fontsize=7.5, fontweight="bold", va="top", ha="left",
+        )
+
+        # Current Price Dotted Line & Pill
+        main_ax.axhline(curr_p, color="#848e9c", linestyle="--", linewidth=0.8, alpha=0.8)
+        main_ax.text(
+            1.002, curr_p, f" {fmt_price(curr_p, use_comma=True)} ",
+            transform=main_ax.get_yaxis_transform(),
+            color="#ffffff", fontsize=7.5, fontweight="bold", va="center", ha="left",
+            bbox=dict(boxstyle="round,pad=0.25", fc="#2b313a", ec="#848e9c", lw=0.8),
+            zorder=10,
+        )
+
+        # Volume Panel Header
+        base_sym = setup.coin.replace("USDT", "")
+        last_vol = df["Volume"].iloc[-1]
+        v_ma5 = vol_ma5.iloc[-1] if not np.isnan(vol_ma5.iloc[-1]) else last_vol
+        v_ma10 = vol_ma10.iloc[-1] if not np.isnan(vol_ma10.iloc[-1]) else last_vol
+        vol_ax.text(0.015, 1.05, f"VOL({base_sym}): {fmt_compact_vol(last_vol, use_comma=True)}   ", transform=vol_ax.transAxes, color=text_muted, fontsize=7.5, va="bottom")
+        vol_ax.text(0.420, 1.05, f"MA(5): {fmt_compact_vol(v_ma5, use_comma=True)}", transform=vol_ax.transAxes, color="#f0b90b", fontsize=7.5, fontweight="bold", va="bottom")
+        vol_ax.text(0.680, 1.05, f"MA(10): {fmt_compact_vol(v_ma10, use_comma=True)}", transform=vol_ax.transAxes, color="#9c27b0", fontsize=7.5, fontweight="bold", va="bottom")
+
+        # Top Phone Status Bar (09:41)
+        fig.text(0.045, 0.985, "09:41", color="#ffffff", fontsize=9.0, fontweight="bold")
+        fig.text(0.955, 0.985, "●●●", color="#ffffff", fontsize=7.0, ha="right")
+
+        # Mobile App Bar (y=0.955)
+        fig.text(0.045, 0.955, "<", color=text_color, fontsize=13, fontweight="bold")
+        fig.text(0.095, 0.955, f"{base_sym}USDT", color="#ffffff", fontsize=12.5, fontweight="bold")
+        fig.text(
+            0.315, 0.956, " Perp ", fontsize=7.0, color=text_muted, fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.2", fc="#2b313a", ec="none"),
+        )
+        fig.text(0.955, 0.955, "[ ]", color=text_muted, fontsize=10.0, ha="right")
+
+        # Calculate 24h change & stats
+        last_row = df.iloc[-1]
+        prev_close = df.iloc[-2]["Close"] if len(df) > 1 else last_row["Close"]
+        chg = ((last_row["Close"] - prev_close) / prev_close) * 100 if prev_close else 0
+        price_color = up_color if chg >= 0 else down_color
+        chg_sign = "+" if chg >= 0 else ""
+
+        h_24h = df["High"].max()
+        l_24h = df["Low"].min()
+        tot_vol = df["Volume"].sum()
+        tot_q_vol = tot_vol * curr_p
+
+        # Big Price & Change (y=0.915)
+        fig.text(0.045, 0.915, fmt_price(curr_p, use_comma=True), color=price_color, fontsize=17, fontweight="bold")
+        fig.text(0.045, 0.890, f"≈${fmt_price(curr_p, use_comma=True)}  {chg_sign}{chg:.2f}%", color=price_color, fontsize=8.5, fontweight="bold")
+
+        # Compact 24h Stats Block
+        fig.text(0.550, 0.925, "24h High", fontsize=7.0, color=text_muted)
+        fig.text(0.550, 0.908, fmt_price(h_24h, use_comma=True), fontsize=7.5, color=text_color, fontweight="bold")
+        fig.text(0.770, 0.925, "24h Vol(USDT)", fontsize=7.0, color=text_muted)
+        fig.text(0.770, 0.908, fmt_compact_vol(tot_q_vol, use_comma=True), fontsize=7.5, color=text_color, fontweight="bold")
+
+        fig.text(0.550, 0.885, "24h Low", fontsize=7.0, color=text_muted)
+        fig.text(0.550, 0.868, fmt_price(l_24h, use_comma=True), fontsize=7.5, color=text_color, fontweight="bold")
+        fig.text(0.770, 0.885, f"24h Vol({base_sym})", fontsize=7.0, color=text_muted)
+        fig.text(0.770, 0.868, fmt_compact_vol(tot_vol, use_comma=True), fontsize=7.5, color=text_color, fontweight="bold")
+
+        # Timeframe Tabs (y=0.845)
+        tabs = ["Line", "15m", "1h", "4h", "1D", "More v", "Depth"]
+        x_cur = 0.045
+        for t in tabs:
+            is_act = (t == "1h")
+            c = "#ffffff" if is_act else text_muted
+            wt = "bold" if is_act else "normal"
+            fig.text(x_cur, 0.845, t, color=c, fontsize=8.0, fontweight=wt)
+            if is_act:
+                ind = lines.Line2D([x_cur, x_cur + 0.040], [0.838, 0.838], transform=fig.transFigure, color="#f0b90b", linewidth=2.0)
+                fig.lines.append(ind)
+            x_cur += 0.125
+
+        # Bottom Mobile Action Bar (y=0.020 to 0.065)
+        fig.text(0.045, 0.040, "Alerts    Margin", color=text_muted, fontsize=7.5, va="center")
+        rect_buy = patches.FancyBboxPatch(
+            (0.440, 0.018), 0.245, 0.044,
+            boxstyle="round,pad=0.005,rounding_size=0.015",
+            transform=fig.transFigure, facecolor="#0ecb81", edgecolor="none"
+        )
+        rect_sell = patches.FancyBboxPatch(
+            (0.710, 0.018), 0.245, 0.044,
+            boxstyle="round,pad=0.005,rounding_size=0.015",
+            transform=fig.transFigure, facecolor="#f6465d", edgecolor="none"
+        )
+        fig.patches.extend([rect_buy, rect_sell])
+        fig.text(0.562, 0.040, "Buy / Long", color="#ffffff", fontsize=8.5, fontweight="bold", ha="center", va="center")
+        fig.text(0.832, 0.040, "Sell / Short", color="#ffffff", fontsize=8.5, fontweight="bold", ha="center", va="center")
+
+        timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        prefix = filename_prefix or setup.coin
+        output_file = self.output_dir / f"{prefix}_mobile_{timestamp_str}.png"
+
+        fig.savefig(output_file, dpi=160, facecolor=bg_color, edgecolor="none")
+        plt.close(fig)
+        logger.info(f"Generated Binance Mobile App screenshot: {output_file}")
+        return output_file
 
     def _render_binance_app(
         self,

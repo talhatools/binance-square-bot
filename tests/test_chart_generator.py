@@ -31,7 +31,13 @@ def test_chart_generation_both_styles():
         assert "sada" in Path(sada_path).name
         assert Path(sada_path).stat().st_size > 1000
 
-        # 4. Test alternating default style
+        # 4. Test Binance Mobile App Portrait Screenshot style
+        mobile_path = chart_gen.generate_chart(setup, bars_count=35, style="mobile")
+        assert Path(mobile_path).exists()
+        assert "mobile" in Path(mobile_path).name
+        assert Path(mobile_path).stat().st_size > 1000
+
+        # 5. Test alternating default style
         alt_path = chart_gen.generate_chart(setup, bars_count=40)
         assert Path(alt_path).exists()
         assert Path(alt_path).stat().st_size > 1000
