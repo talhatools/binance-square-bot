@@ -175,13 +175,13 @@ class ChartGenerator:
         self,
         output_dir: Path | str = "charts",
         watermark_text: str = "Talha Sniper",
-        default_style: str = "mobile",
+        default_style: str = "sada",
     ):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.watermark_text = watermark_text
         self.default_style = default_style.lower()
-        self._style_cycle = itertools.cycle(["mobile", "sada", "competitor", "tradingview"])
+        self._style_cycle = itertools.cycle(["sada", "mobile", "competitor", "tradingview"])
 
     def generate_chart(
         self,
