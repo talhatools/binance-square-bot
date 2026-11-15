@@ -21,11 +21,17 @@ def test_chart_generation_both_styles():
         assert Path(tv_path).stat().st_size > 1000
 
         # 2. Test Binance App competitor style
-        binance_path = chart_gen.generate_chart(setup, bars_count=40, style="binance_app")
+        binance_path = chart_gen.generate_chart(setup, bars_count=40, style="competitor")
         assert Path(binance_path).exists()
         assert Path(binance_path).stat().st_size > 1000
 
-        # 3. Test alternating default style
+        # 3. Test Binance App Sada (clean, no lines, no logo) style
+        sada_path = chart_gen.generate_chart(setup, bars_count=40, style="sada")
+        assert Path(sada_path).exists()
+        assert "sada" in Path(sada_path).name
+        assert Path(sada_path).stat().st_size > 1000
+
+        # 4. Test alternating default style
         alt_path = chart_gen.generate_chart(setup, bars_count=40)
         assert Path(alt_path).exists()
         assert Path(alt_path).stat().st_size > 1000

@@ -175,13 +175,13 @@ class ChartGenerator:
         self,
         output_dir: Path | str = "charts",
         watermark_text: str = "Talha Sniper",
-        default_style: str = "both",
+        default_style: str = "sada",
     ):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.watermark_text = watermark_text
         self.default_style = default_style.lower()
-        self._style_cycle = itertools.cycle(["binance_app", "tradingview"])
+        self._style_cycle = itertools.cycle(["sada", "competitor", "tradingview"])
 
     def generate_chart(
         self,
@@ -192,7 +192,8 @@ class ChartGenerator:
     ) -> Path:
         """
         Generates a chart according to requested or alternating style:
-        - 'binance_app' (Competitor real Binance Futures App screenshot style)
+        - 'sada' / 'clean' (Pure, plain Binance screenshot - NO lines, NO logo)
+        - 'competitor' / 'binance' (Competitor style with trendlines, TP/SL levels, and watermark)
         - 'tradingview' (TradingView Pro dark style with RSI sub-panel)
         - 'both' / 'alternate' (Alternates automatically on each post)
         """
@@ -200,8 +201,10 @@ class ChartGenerator:
         if chosen_style in ("both", "alternate", "auto", "mix"):
             chosen_style = next(self._style_cycle)
 
-        if chosen_style in ("binance_app", "binance", "competitor", "app"):
-            return self._render_binance_app(setup, bars_count or 52, filename_prefix)
+        if chosen_style in ("sada", "clean", "binance_clean", "pure", "raw", "sada_binance"):
+            return self._render_binance_app(setup, bars_count or 52, filename_prefix, clean=True)
+        elif chosen_style in ("binance_app", "binance", "competitor", "binance_competitor", "markup", "app"):
+            return self._render_binance_app(setup, bars_count or 52, filename_prefix, clean=False)
         else:
             return self._render_tradingview_pro(setup, bars_count or 70, filename_prefix)
 
@@ -210,11 +213,12 @@ class ChartGenerator:
         setup: TradeSetup,
         bars_count: int = 52,
         filename_prefix: Optional[str] = None,
+        clean: bool = False,
     ) -> Path:
         """
-        Renders the exact Binance App Futures (Perpetual) screenshot style
-        matching competitor posts (clean UI, top stats bar, high/low tags,
-        hand-drawn trendline/box projection, and bottom-right creator watermark).
+        Renders Binance App Futures (Perpetual) screenshot style:
+        - clean=True: Bilkul sada Binance screenshot (NO lines, NO logo, pure live candles & stats)
+        - clean=False: Competitor style (trendline, projection arrow, entry box, TP/SL levels, subtle watermark)
         """
         full_df = setup.df_1h.copy()
         full_df.rename(
@@ -224,6 +228,10 @@ class ChartGenerator:
 
         effective_bars = min(bars_count, len(full_df))
         df = full_df.tail(effective_bars).copy()
+
+        # Moving Averages on price candles (standard Binance app: MA7 yellow, MA25 purple)
+        ma7 = df["Close"].rolling(7, min_periods=2).mean()
+        ma25 = df["Close"].rolling(25, min_periods=5).mean()
 
         # Volume MAs: MA5 (yellow) and MA10 (purple)
         vol_ma5 = df["Volume"].rolling(5, min_periods=2).mean()
@@ -268,20 +276,24 @@ class ChartGenerator:
         )
 
         add_plots = [
+            mpf.make_addplot(ma7, color="#f0b90b", width=1.0, panel=0),
+            mpf.make_addplot(ma25, color="#e040fb", width=1.0, panel=0),
             mpf.make_addplot(vol_ma5, color="#f0b90b", width=1.1, panel=1),
             mpf.make_addplot(vol_ma10, color="#9c27b0", width=1.1, panel=1),
         ]
 
         # Calculate y-limits with padding
-        all_prices = [df["Low"].min(), df["High"].max(), setup.current_price]
-        if setup.target_price and not np.isnan(setup.target_price):
-            all_prices.append(setup.target_price)
-        if setup.stop_loss and not np.isnan(setup.stop_loss):
-            all_prices.append(setup.stop_loss)
-        if setup.support_level > 0:
-            all_prices.append(setup.support_level)
-        if setup.resistance_level > 0:
-            all_prices.append(setup.resistance_level)
+        curr_p = setup.current_price
+        all_prices = [df["Low"].min(), df["High"].max(), curr_p]
+        if not clean:
+            if setup.target_price and not np.isnan(setup.target_price):
+                all_prices.append(setup.target_price)
+            if setup.stop_loss and not np.isnan(setup.stop_loss):
+                all_prices.append(setup.stop_loss)
+            if setup.support_level > 0:
+                all_prices.append(setup.support_level)
+            if setup.resistance_level > 0:
+                all_prices.append(setup.resistance_level)
 
         min_p = min(all_prices)
         max_p = max(all_prices)
@@ -310,7 +322,7 @@ class ChartGenerator:
 
         # Explicitly position main_ax and vol_ax to eliminate empty black voids on left and bottom!
         chart_left = 0.020
-        chart_width = 0.895
+        chart_width = 0.940 if clean else 0.895
         chart_bottom = 0.045
         vol_height = 0.130
         gap = 0.018
@@ -334,7 +346,7 @@ class ChartGenerator:
         vol_ax.yaxis.set_label_position("right")
 
         n_bars = len(df)
-        extra_bars = 7
+        extra_bars = 4 if clean else 7
         main_ax.set_xlim(-0.5, n_bars + extra_bars)
         vol_ax.set_xlim(-0.5, n_bars + extra_bars)
 
@@ -353,8 +365,21 @@ class ChartGenerator:
         fig.text(0.24, 0.024, first_dt, color=text_muted, fontsize=8.0, ha="center", va="center")
         fig.text(0.60, 0.024, mid_dt, color=text_muted, fontsize=8.0, ha="center", va="center")
 
-        # Official subtle Binance diamond logo and text in center of chart
-        draw_binance_watermark(main_ax)
+        # Subtle Binance watermark logo (Only on competitor style, skipped on clean/sada)
+        if not clean:
+            draw_binance_watermark(main_ax)
+
+        # Price Moving Average Legend on top left of main chart
+        last_ma7 = ma7.iloc[-1] if not np.isnan(ma7.iloc[-1]) else curr_p
+        last_ma25 = ma25.iloc[-1] if not np.isnan(ma25.iloc[-1]) else curr_p
+        main_ax.text(
+            0.010, 0.970, f"MA(7): {fmt_price(last_ma7, use_comma=True)}   ",
+            transform=main_ax.transAxes, color="#f0b90b", fontsize=8.0, fontweight="bold", va="top"
+        )
+        main_ax.text(
+            0.150, 0.970, f"MA(25): {fmt_price(last_ma25, use_comma=True)}",
+            transform=main_ax.transAxes, color="#e040fb", fontsize=8.0, fontweight="bold", va="top"
+        )
 
         # Signature Binance High & Low price ticks
         high_idx = int(df["High"].values.argmax())
@@ -372,7 +397,6 @@ class ChartGenerator:
         )
 
         # Current Price Dotted Line & Pill
-        curr_p = setup.current_price
         main_ax.axhline(curr_p, color="#848e9c", linestyle="--", linewidth=0.8, alpha=0.8)
         main_ax.text(
             1.002, curr_p, f" {fmt_price(curr_p, use_comma=True)} ",
@@ -382,96 +406,99 @@ class ChartGenerator:
             zorder=10,
         )
 
-        # Realistic Trader Drawing Overlay (Natural paths with arrowheads)
-        if setup.direction == "SHORT":
-            peak_x = high_idx
-            peak_y = high_val
-            curr_x = n_bars - 1
+        # Realistic Trader Drawing Overlay (Only on competitor style, skipped on clean/sada)
+        if not clean:
+            if setup.direction == "SHORT":
+                peak_x = high_idx
+                peak_y = high_val
+                curr_x = n_bars - 1
 
-            # Natural resistance trendline across highs
-            main_ax.plot([peak_x, curr_x + 5], [peak_y, curr_p * 0.995], color="#f6465d", linewidth=1.5, alpha=0.9, zorder=5)
+                # Natural resistance trendline across highs
+                main_ax.plot([peak_x, curr_x + 5], [peak_y, curr_p * 0.995], color="#f6465d", linewidth=1.5, alpha=0.9, zorder=5)
 
-            if setup.support_level > 0:
-                main_ax.hlines(setup.support_level, peak_x, curr_x + 7, colors="#0ecb81", linestyles="-", linewidths=1.0, alpha=0.6)
+                if setup.support_level > 0:
+                    main_ax.hlines(setup.support_level, peak_x, curr_x + 7, colors="#0ecb81", linestyles="-", linewidths=1.0, alpha=0.6)
 
-            # Smooth trader projection path curving down to target
-            arrow_start_x = curr_x
-            arrow_start_y = curr_p
-            arrow_end_x = curr_x + 6
-            arrow_end_y = setup.target_price
+                # Smooth trader projection path curving down to target
+                arrow_start_x = curr_x
+                arrow_start_y = curr_p
+                arrow_end_x = curr_x + 6
+                arrow_end_y = setup.target_price
 
-            arrow = patches.FancyArrowPatch(
-                (arrow_start_x, arrow_start_y),
-                (arrow_end_x, arrow_end_y),
-                arrowstyle="-|>",
-                mutation_scale=13,
-                color="#f6465d",
-                linewidth=1.8,
-                linestyle="-",
-                zorder=7,
-            )
-            main_ax.add_patch(arrow)
+                arrow = patches.FancyArrowPatch(
+                    (arrow_start_x, arrow_start_y),
+                    (arrow_end_x, arrow_end_y),
+                    arrowstyle="-|>",
+                    mutation_scale=13,
+                    color="#f6465d",
+                    linewidth=1.8,
+                    linestyle="-",
+                    zorder=7,
+                )
+                main_ax.add_patch(arrow)
 
-            # Target & Invalidation rounded pills on right axis matching real Binance App
-            main_ax.axhline(setup.stop_loss, color="#f6465d", linestyle="-", linewidth=0.9, alpha=0.85)
-            main_ax.text(
-                1.002, setup.stop_loss, f" {fmt_price(setup.stop_loss, use_comma=True)} ",
-                transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#f6465d", ec="none"),
-                zorder=10,
-            )
-            main_ax.axhline(setup.target_price, color="#0ecb81", linestyle="-", linewidth=0.9, alpha=0.85)
-            main_ax.text(
-                1.002, setup.target_price, f" {fmt_price(setup.target_price, use_comma=True)} ",
-                transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#0ecb81", ec="none"),
-                zorder=10,
-            )
-        elif setup.direction == "LONG":
-            box_start = max(0, n_bars - 20)
-            box_end = n_bars + 2
-            box_low = df["Low"].iloc[box_start:].min()
-            box_high = curr_p * 1.006
+                # Target & Invalidation rounded pills on right axis matching real Binance App
+                main_ax.axhline(setup.stop_loss, color="#f6465d", linestyle="-", linewidth=0.9, alpha=0.85)
+                main_ax.text(
+                    1.002, setup.stop_loss, f" {fmt_price(setup.stop_loss, use_comma=True)} ",
+                    transform=main_ax.get_yaxis_transform(),
+                    color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                    bbox=dict(boxstyle="round,pad=0.3", fc="#f6465d", ec="none"),
+                    zorder=10,
+                )
+                main_ax.axhline(setup.target_price, color="#0ecb81", linestyle="-", linewidth=0.9, alpha=0.85)
+                main_ax.text(
+                    1.002, setup.target_price, f" {fmt_price(setup.target_price, use_comma=True)} ",
+                    transform=main_ax.get_yaxis_transform(),
+                    color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                    bbox=dict(boxstyle="round,pad=0.3", fc="#0ecb81", ec="none"),
+                    zorder=10,
+                )
+            elif setup.direction == "LONG":
+                box_start = max(0, n_bars - 20)
+                box_end = n_bars + 2
+                box_low = df["Low"].iloc[box_start:].min()
+                box_high = curr_p * 1.006
 
-            rect = patches.Rectangle(
-                (box_start, box_low), box_end - box_start, box_high - box_low,
-                linewidth=1.3, edgecolor="#0ecb81", facecolor="#0ecb8118", zorder=3
-            )
-            main_ax.add_patch(rect)
+                rect = patches.Rectangle(
+                    (box_start, box_low), box_end - box_start, box_high - box_low,
+                    linewidth=1.3, edgecolor="#0ecb81", facecolor="#0ecb8118", zorder=3
+                )
+                main_ax.add_patch(rect)
 
-            arrow_start_x = n_bars - 1
-            arrow_start_y = curr_p
-            arrow_end_x = n_bars + 6
-            arrow_end_y = setup.target_price
+                arrow_start_x = n_bars - 1
+                arrow_start_y = curr_p
+                arrow_end_x = n_bars + 6
+                arrow_end_y = setup.target_price
 
-            arrow = patches.FancyArrowPatch(
-                (arrow_start_x, arrow_start_y),
-                (arrow_end_x, arrow_end_y),
-                arrowstyle="-|>",
-                mutation_scale=13,
-                color="#0ecb81",
-                linewidth=1.8,
-                linestyle="-",
-                zorder=7,
-            )
-            main_ax.add_patch(arrow)
+                arrow = patches.FancyArrowPatch(
+                    (arrow_start_x, arrow_start_y),
+                    (arrow_end_x, arrow_end_y),
+                    arrowstyle="-|>",
+                    mutation_scale=13,
+                    color="#0ecb81",
+                    linewidth=1.8,
+                    linestyle="-",
+                    zorder=7,
+                )
+                main_ax.add_patch(arrow)
 
-            main_ax.axhline(setup.stop_loss, color="#f6465d", linestyle="-", linewidth=0.9, alpha=0.85)
-            main_ax.text(
-                1.002, setup.stop_loss, f" {fmt_price(setup.stop_loss, use_comma=True)} ",
-                transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#f6465d", ec="none"),
-                zorder=10,
-            )
-            main_ax.axhline(setup.target_price, color="#0ecb81", linestyle="-", linewidth=0.9, alpha=0.85)
-            main_ax.text(
-                1.002, setup.target_price, f" {fmt_price(setup.target_price, use_comma=True)} ",
-                transform=main_ax.get_yaxis_transform(),
-                color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
-            )
+                main_ax.axhline(setup.stop_loss, color="#f6465d", linestyle="-", linewidth=0.9, alpha=0.85)
+                main_ax.text(
+                    1.002, setup.stop_loss, f" {fmt_price(setup.stop_loss, use_comma=True)} ",
+                    transform=main_ax.get_yaxis_transform(),
+                    color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                    bbox=dict(boxstyle="round,pad=0.3", fc="#f6465d", ec="none"),
+                    zorder=10,
+                )
+                main_ax.axhline(setup.target_price, color="#0ecb81", linestyle="-", linewidth=0.9, alpha=0.85)
+                main_ax.text(
+                    1.002, setup.target_price, f" {fmt_price(setup.target_price, use_comma=True)} ",
+                    transform=main_ax.get_yaxis_transform(),
+                    color="#ffffff", fontsize=8.5, fontweight="bold", va="center", ha="left",
+                    bbox=dict(boxstyle="round,pad=0.3", fc="#0ecb81", ec="none"),
+                    zorder=10,
+                )
 
         # Volume Panel Header with exact multi-colored MA values like competitor screenshots
         base_sym = setup.coin.replace("USDT", "")
@@ -545,18 +572,21 @@ class ChartGenerator:
             fig.text(x_cursor, 0.865, tab, fontsize=8.5, color=t_color, fontweight=font_wt)
             x_cursor += 0.075 if "More" in tab else 0.060
 
-        fig.text(0.875, 0.865, "[ ]", fontsize=8.5, color=text_muted)
+        fullscreen_x = 0.945 if clean else 0.875
+        fig.text(fullscreen_x, 0.865, "[ ]", fontsize=8.5, color=text_muted)
 
-        # Draw Vector Toolbar on Far Right (Clean, crisp, no missing glyphs!)
-        draw_vector_toolbar(fig)
+        # Draw Vector Toolbar on Far Right (Only for competitor style)
+        if not clean:
+            draw_vector_toolbar(fig)
 
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         prefix = filename_prefix or setup.coin
-        output_file = self.output_dir / f"{prefix}_binance_{timestamp_str}.png"
+        style_suffix = "sada" if clean else "binance"
+        output_file = self.output_dir / f"{prefix}_{style_suffix}_{timestamp_str}.png"
 
         fig.savefig(output_file, dpi=160, facecolor=bg_color, edgecolor="none")
         plt.close(fig)
-        logger.info(f"Generated Binance App chart: {output_file}")
+        logger.info(f"Generated Binance App chart ({style_suffix}): {output_file}")
         return output_file
 
     def _render_tradingview_pro(
