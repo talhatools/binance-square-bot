@@ -180,9 +180,9 @@ def main():
     )
     parser.add_argument(
         "--chart-style",
-        choices=["both", "binance", "tradingview", "binance_app"],
+        choices=["both", "sada", "mobile", "competitor", "binance", "tradingview", "binance_app"],
         default=None,
-        help="Chart visual style: 'binance' (Competitor App style), 'tradingview' (Pro dark style), or 'both' (alternating).",
+        help="Chart visual style: 'sada' (Clean), 'mobile' (Mobile App), 'competitor' (With lines), 'tradingview' (Pro dark), or 'both'.",
     )
     parser.add_argument(
         "--coin",
@@ -190,11 +190,24 @@ def main():
         default=None,
         help="Force post about a specific coin (e.g. BTC, ETH, SOL). Skips auto-scan.",
     )
+    parser.add_argument(
+        "--min-volume",
+        "--min-vol",
+        type=float,
+        default=None,
+        help="Filter coins by minimum 24h Futures USDT volume in Millions (e.g. 10, 25, 50, 100) or exact USDT (e.g. 25000000).",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
     if args.chart_style:
         settings.chart_style = args.chart_style
+
+    if args.min_volume is not None:
+        vol = float(args.min_volume)
+        if vol < 10000.0:
+            vol = vol * 1_000_000.0
+        settings.min_24h_quote_volume = vol
 
     if args.dry_run:
         settings.dry_run = True
@@ -263,7 +276,7 @@ def main():
     if args.run_once:
         coin_arg = args.coin.upper().strip() if args.coin else None
         logger.info(f"Executing single posting cycle (--run-once, force={args.force}, coin={coin_arg or 'auto'})...")
-        result = bot.run_cycle(force=args.force, coin=coin_arg)
+        result = bot.run_cycle(force=args.force, coin=coin_arg, min_volume=settings.min_24h_quote_volume)
         tracker.evaluate_pending_signals()
         if result:
             print(f"\nCompleted cycle for {result['coin']} [{result['direction']}]. Status: {result['status']}")

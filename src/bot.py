@@ -97,12 +97,18 @@ class PostingBot:
             logger.debug(f"Could not validate symbol {symbol} against Binance: {exc}")
             return symbol
 
-    def run_cycle(self, force: bool = False, coin: str = None) -> Optional[Dict[str, Any]]:
+    def run_cycle(
+        self,
+        force: bool = False,
+        coin: str = None,
+        min_volume: Optional[float] = None,
+    ) -> Optional[Dict[str, Any]]:
         """
         Executes one full iteration of the automated posting pipeline:
         1. Enforces daily posting limit (max 100/day).
         2. Scans Binance market & scores coins (skips cooldown coins unless force=True).
            OR uses a specific coin if provided via --coin argument.
+           Optionally filters by custom 24h volume threshold (min_volume in Millions or USDT).
         3. Fetches 1h & 4h klines and performs rule-based technical analysis.
         4. Validates setup direction: skips if NO_TRADE.
         5. Generates dark-theme candlestick chart PNG with watermark.
@@ -131,6 +137,11 @@ class PostingBot:
         # 2. Pick Top Promising Candidates (up to 20-25 candidates across pool)
         cooldown = 0.0 if force else self.settings.cooldown_hours
 
+        # Determine minimum volume threshold (supports both millions e.g. 25, and raw USDT e.g. 25000000)
+        vol_threshold = min_volume if min_volume is not None else self.settings.min_24h_quote_volume
+        if vol_threshold < 10000.0:
+            vol_threshold = vol_threshold * 1_000_000.0
+
         if coin:
             # Specific coin mode: skip market scanner, go straight to this coin
             clean_coin = coin.replace("$", "").replace("/", "").replace("-", "").strip().upper()
@@ -142,8 +153,12 @@ class PostingBot:
             logger.info(f"Specific coin requested: {symbol} — skipping market scan.")
             candidates = [{"symbol": symbol, "score": 100.0, "metrics": {}}]
         else:
+            logger.info(
+                f"Scanning Binance Futures market with 24h Volume >= ${vol_threshold:,.0f} USDT "
+                f"({vol_threshold / 1_000_000:.1f} Million+)..."
+            )
             candidates = self.scanner.get_top_candidates(
-                min_quote_volume=self.settings.min_24h_quote_volume,
+                min_quote_volume=vol_threshold,
                 cooldown_hours=cooldown,
                 candidate_pool_limit=75,
                 top_n=30,
