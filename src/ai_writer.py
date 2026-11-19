@@ -4,6 +4,7 @@ import time
 import logging
 import re
 from typing import Optional, Dict, Any, List
+import pandas as pd
 from anthropic import Anthropic, APIError, RateLimitError
 from src.technical_analysis import TradeSetup
 
@@ -496,3 +497,50 @@ Strict Rules:
         if canonical_style in templates_map:
             return templates_map[canonical_style]
         return random.choice(list(templates_map.values()))
+
+    def generate_all_style_previews(self, coin: str = "BTCUSDT", direction: str = "LONG") -> Dict[str, str]:
+        """Generates realistic post text previews for all supported post styles."""
+        from src.technical_analysis import TradeSetup
+        clean_coin = coin.replace("$", "").replace("/", "").strip().upper()
+        if not clean_coin.endswith("USDT"):
+            clean_coin += "USDT"
+
+        is_long = direction.upper() == "LONG"
+        price = 92450.0 if "BTC" in clean_coin else (3150.0 if "ETH" in clean_coin else 185.0)
+        entry_low = round(price * 0.995, 2)
+        entry_high = round(price * 1.005, 2)
+        tp1 = round(price * 1.025, 2) if is_long else round(price * 0.975, 2)
+        tp2 = round(price * 1.055, 2) if is_long else round(price * 0.945, 2)
+        tp3 = round(price * 1.085, 2) if is_long else round(price * 0.915, 2)
+        sl = round(price * 0.98, 2) if is_long else round(price * 1.02, 2)
+        sup = round(price * 0.975, 2)
+        res = round(price * 1.035, 2)
+
+        sample_setup = TradeSetup(
+            coin=clean_coin,
+            direction="LONG" if is_long else "SHORT",
+            current_price=price,
+            entry_low=entry_low,
+            entry_high=entry_high,
+            target_price=tp3,
+            stop_loss=sl,
+            risk_reward=2.8,
+            support_level=sup,
+            resistance_level=res,
+            rsi_1h=39.2 if is_long else 68.4,
+            ma20_1h=round(price * 0.997, 2),
+            ma50_1h=round(price * 0.991, 2),
+            ma50_4h=round(price * 0.984, 2),
+            timeframe="1h/4h",
+            reasons=["Key structural liquidity sweep confirmed", "1H RSI momentum divergence"],
+            df_1h=pd.DataFrame(),
+            df_4h=pd.DataFrame(),
+        )
+
+        styles = ["sniper", "technical", "clean", "conversational", "danger_zone", "whale", "reversal"]
+        previews = {}
+        cashtag = f"${clean_coin.replace('USDT', '')}"
+        bias = "Bullish" if is_long else "Bearish"
+        for s in styles:
+            previews[s] = self._generate_template_fallback(sample_setup, cashtag=cashtag, bias=bias, post_style=s)
+        return previews

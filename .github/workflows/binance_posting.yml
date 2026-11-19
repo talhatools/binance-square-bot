@@ -48,6 +48,11 @@ on:
           - whale
           - reversal
         default: 'auto'
+      preview_only:
+        description: 'Preview Only (Generates & displays post preview in GitHub Summary without publishing)'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: binance-square-posting
@@ -112,15 +117,22 @@ jobs:
             STYLE_FLAG="--post-style $STYLE_INPUT"
           fi
 
+          PREVIEW_INPUT="${{ github.event.inputs.preview_only }}"
+          PREVIEW_FLAG=""
+          if [ "$PREVIEW_INPUT" = "true" ]; then
+            echo "PREVIEW MODE ENABLED: Post preview will be shown in GitHub Summary without publishing."
+            PREVIEW_FLAG="--preview"
+          fi
+
           if [ -n "$COIN_INPUT" ]; then
             echo "Running in SPECIFIC COIN mode: $COIN_INPUT (force mode auto-enabled)..."
-            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $STYLE_FLAG
+            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
           elif [ "${{ github.event.inputs.force_run }}" = "true" ]; then
             echo "Running in high-priority force mode (bypassing coin cooldown)..."
-            python main.py --run-once --force $VOL_FLAG $STYLE_FLAG
+            python main.py --run-once --force $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
           else
             echo "Running in standard cooldown mode (guaranteeing different coins)..."
-            python main.py --run-once $VOL_FLAG $STYLE_FLAG
+            python main.py --run-once $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
           fi
 
       - name: Save Updated SQLite Database Cache

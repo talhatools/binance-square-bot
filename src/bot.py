@@ -301,4 +301,5 @@ class PostingBot:
             "share_link": share_link,
             "chart_path": str(chart_path),
             "text": post_text,
+            "post_style": chosen_post_style,
         }
