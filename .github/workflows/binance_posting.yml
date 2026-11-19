@@ -35,21 +35,21 @@ on:
         type: string
         default: ''
       post_style:
-        description: 'Post Copywriting Style (auto=Rotate All, sniper=Short Alert, technical=In-depth TA, clean=Clean Setup, conversational=Question Hook, danger_zone=Breakdown Trap, whale=Smart Money, reversal=Trend Reversal)'
+        description: 'Post Style (Select any style to see its preview):'
         required: false
         type: choice
         options:
-          - auto
-          - sniper
-          - technical
-          - clean
-          - conversational
-          - danger_zone
-          - whale
-          - reversal
-        default: 'auto'
+          - 'auto (Rotate all styles)'
+          - 'sniper ➔ 🚀 Guys, LONG $BTC Now! Entry: $92k | TP: $95k | SL: $90k'
+          - 'technical ➔ BTC structure. 🟢 LONG $BTC | Bias: Bullish | Entry, TPs (%), MA20, RSI'
+          - 'clean ➔ $BTC BIG LONG : Clean Setup | 📍 Entry | 🛑 SL | 🎯 TP1-3'
+          - 'conversational ➔ guys, have you seen what’s happening with $BTC ? 🚨 Question Hook'
+          - 'danger_zone ➔ $BTC IS ENTERING CRITICAL DANGER ZONE ... WATCHING FOR UNWIND'
+          - 'whale ➔ $BTC The harder they dump, harder the reversal! Whale trap thesis'
+          - 'reversal ➔ I’m going to open a BIG LONG on $BTC here. Catch recovery wave!'
+        default: 'auto (Rotate all styles)'
       preview_only:
-        description: 'Preview Only (Generates & displays post preview in GitHub Summary without publishing)'
+        description: 'Preview Only (Instant dummy post style preview without market scan or live posting)'
         required: false
         type: boolean
         default: false
@@ -118,21 +118,21 @@ jobs:
           fi
 
           PREVIEW_INPUT="${{ github.event.inputs.preview_only }}"
-          PREVIEW_FLAG=""
           if [ "$PREVIEW_INPUT" = "true" ]; then
-            echo "PREVIEW MODE ENABLED: Post preview will be shown in GitHub Summary without publishing."
-            PREVIEW_FLAG="--preview"
+            echo "DUMMY PREVIEW ONLY: Generating instant dummy style preview (skipping live scan & posting)..."
+            python main.py --dummy-style "$STYLE_INPUT" --coin "${COIN_INPUT:-BTC}"
+            exit 0
           fi
 
           if [ -n "$COIN_INPUT" ]; then
             echo "Running in SPECIFIC COIN mode: $COIN_INPUT (force mode auto-enabled)..."
-            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
+            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $STYLE_FLAG
           elif [ "${{ github.event.inputs.force_run }}" = "true" ]; then
             echo "Running in high-priority force mode (bypassing coin cooldown)..."
-            python main.py --run-once --force $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
+            python main.py --run-once --force $VOL_FLAG $STYLE_FLAG
           else
             echo "Running in standard cooldown mode (guaranteeing different coins)..."
-            python main.py --run-once $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
+            python main.py --run-once $VOL_FLAG $STYLE_FLAG
           fi
 
       - name: Save Updated SQLite Database Cache

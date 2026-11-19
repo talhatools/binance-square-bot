@@ -256,6 +256,12 @@ def main():
         action="store_true",
         help="Display sample post previews for all 7 copywriting styles.",
     )
+    parser.add_argument(
+        "--dummy-style",
+        type=str,
+        default=None,
+        help="Display instant dummy post preview for the chosen style without market scan or live posting.",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
@@ -280,13 +286,86 @@ def main():
     setup_logging(settings.logs_dir, settings.log_level)
     logger = logging.getLogger("main")
 
-    is_info_mode = args.summary or args.stats or args.history or args.track_signals or args.preview_styles or args.preview
+    is_info_mode = (
+        args.summary
+        or args.stats
+        or args.history
+        or args.track_signals
+        or args.preview_styles
+        or args.preview
+        or bool(args.dummy_style)
+    )
     if not is_info_mode:
         check_or_prompt_api_key(settings, logger)
 
     logger.info("Initializing Binance Square Posting Bot...")
     bot = PostingBot(settings)
     tracker = PerformanceTracker(bot.client, bot.db)
+
+    # 0. Instant Dummy Post Style Preview
+    if args.dummy_style:
+        from src.ai_writer import normalize_post_style
+        coin = args.coin or "BTC"
+        canonical = normalize_post_style(args.dummy_style)
+        clean_coin = coin.replace("$", "").replace("/", "").strip().upper()
+
+        if canonical == "all" or canonical == "auto":
+            previews = bot.ai_writer.generate_all_style_previews(coin=clean_coin, direction="LONG")
+            print("\n" + "=" * 70)
+            print(f"👁️ ALL 7 DUMMY POST STYLES (Coin: ${clean_coin})")
+            print("=" * 70)
+            for name, text in previews.items():
+                print(f"\n--- [ DUMMY STYLE: {name.upper()} ] ---")
+                print(text)
+                print(f"\nCharacters: {len(text)} / 600")
+                print("-" * 50)
+            print("=" * 70 + "\n")
+
+            summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+            if summary_path:
+                try:
+                    with open(summary_path, "a", encoding="utf-8") as f:
+                        f.write(f"## 👁️ All Post Styles Dummy Preview (${clean_coin})\n\n")
+                        for name, text in previews.items():
+                            f.write(f"### Style: `{name}` ({len(text)} chars)\n```text\n{text}\n```\n\n")
+                except Exception:
+                    pass
+            return
+        else:
+            long_text = bot.ai_writer.generate_single_style_preview(canonical, coin=clean_coin, direction="LONG")
+            short_text = bot.ai_writer.generate_single_style_preview(canonical, coin=clean_coin, direction="SHORT")
+
+            print("\n" + "=" * 70)
+            print(f"👁️ DUMMY POST PREVIEW [STYLE: {canonical.upper()}] (Coin: ${clean_coin})")
+            print("=" * 70)
+            print(f"\n🟢 [LONG SETUP PREVIEW]:\n{long_text}\n(Length: {len(long_text)} chars)")
+            print("-" * 50)
+            print(f"\n🔴 [SHORT SETUP PREVIEW]:\n{short_text}\n(Length: {len(short_text)} chars)")
+            print("=" * 70 + "\n")
+
+            summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+            if summary_path:
+                try:
+                    summary_content = f"""
+## 👁️ Post Style Dummy Preview: `{canonical}` (${clean_coin})
+
+> 💡 **Pure Style Preview:** Yeh sirf post format dekhane ke liye dummy preview hai (koi live post ya market scan nahi hua).
+
+### 🟢 LONG Setup Dummy Post ({len(long_text)} chars):
+```text
+{long_text}
+```
+
+### 🔴 SHORT Setup Dummy Post ({len(short_text)} chars):
+```text
+{short_text}
+```
+"""
+                    with open(summary_path, "a", encoding="utf-8") as f:
+                        f.write(summary_content + "\n")
+                except Exception:
+                    pass
+            return
 
     # 1. Summary mode
     if args.summary:

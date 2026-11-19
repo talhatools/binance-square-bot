@@ -1,0 +1,47 @@
+name: 👁️ Preview Post Style (Dummy Preview)
+
+on:
+  workflow_dispatch:
+    inputs:
+      post_style:
+        description: 'Choose Post Style to Preview (See format in option):'
+        required: true
+        type: choice
+        options:
+          - 'sniper ➔ 🚀 Guys, LONG $BTC Now! Entry: $92k | TP: $95k | SL: $90k'
+          - 'technical ➔ BTC structure. 🟢 LONG $BTC | Bias: Bullish | Entry, TPs (%), MA20, RSI'
+          - 'clean ➔ $BTC BIG LONG : Clean Setup | 📍 Entry | 🛑 SL | 🎯 TP1-3'
+          - 'conversational ➔ guys, have you seen what’s happening with $BTC ? 🚨 Question Hook'
+          - 'danger_zone ➔ $BTC IS ENTERING CRITICAL DANGER ZONE ... WATCHING FOR UNWIND'
+          - 'whale ➔ $BTC The harder they dump, harder the reversal! Whale trap thesis'
+          - 'reversal ➔ I’m going to open a BIG LONG on $BTC here. Catch recovery wave!'
+          - 'all ➔ (Show ALL 7 styles dummy preview together)'
+        default: 'sniper ➔ 🚀 Guys, LONG $BTC Now! Entry: $92k | TP: $95k | SL: $90k'
+      coin:
+        description: 'Coin for dummy preview (e.g. BTC, ETH, SOL):'
+        required: false
+        type: string
+        default: 'BTC'
+
+jobs:
+  show_dummy_preview:
+    name: Generate Dummy Post Preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install pandas
+
+      - name: Display Dummy Post Preview
+        run: |
+          python main.py --dummy-style "${{ github.event.inputs.post_style }}" --coin "${{ github.event.inputs.coin }}"

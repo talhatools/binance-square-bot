@@ -131,21 +131,25 @@ POST_STYLE_ARCHETYPE_MAP = {
 
 def normalize_post_style(style_str: Optional[str]) -> str:
     """Normalizes user/config post style input to canonical archetype key."""
-    s = (style_str or "auto").strip().lower().replace("-", "_").replace(" ", "_")
-    if s in ("sniper", "short", "ultra_short", "fast", "ultra_short_sniper"):
+    if not style_str:
+        return "auto"
+    s = str(style_str).strip().lower().replace("-", "_").replace(" ", "_")
+    if s.startswith("sniper") or "sniper" in s or "short" in s or "fast" in s:
         return "sniper"
-    if s in ("danger_zone", "danger", "trap", "breakdown", "exhaustion", "exhaustion_danger_zone"):
+    if s.startswith("danger") or "danger" in s or "exhaustion" in s or "trap" in s:
         return "danger_zone"
-    if s in ("technical", "tech", "multi_tp", "indicator", "technical_multi_tp"):
+    if s.startswith("tech") or "technical" in s or "indicator" in s or "multi_tp" in s:
         return "technical"
-    if s in ("conversational", "community", "question", "story", "conversational_community_hook"):
+    if s.startswith("conv") or "conversational" in s or "community" in s or "question" in s:
         return "conversational"
-    if s in ("clean", "idea", "trading_idea", "simple", "clean_trading_idea"):
+    if s.startswith("clean") or "simple" in s:
         return "clean"
-    if s in ("whale", "smart_money", "order_book", "whale_trap_thesis"):
+    if s.startswith("whale") or "smart_money" in s or "order_book" in s:
         return "whale"
-    if s in ("reversal", "bounce", "recovery", "contrarian", "big_reversal_recovery"):
+    if s.startswith("reversal") or "bounce" in s or "recovery" in s or "contrarian" in s:
         return "reversal"
+    if "all" in s:
+        return "all"
     return "auto"
 
 
@@ -544,3 +548,52 @@ Strict Rules:
         for s in styles:
             previews[s] = self._generate_template_fallback(sample_setup, cashtag=cashtag, bias=bias, post_style=s)
         return previews
+
+    def generate_single_style_preview(
+        self,
+        style: str,
+        coin: str = "BTCUSDT",
+        direction: str = "LONG",
+    ) -> str:
+        """Generates realistic post text preview for a specific post style and direction."""
+        from src.technical_analysis import TradeSetup
+        clean_coin = coin.replace("$", "").replace("/", "").strip().upper()
+        if not clean_coin.endswith("USDT"):
+            clean_coin += "USDT"
+
+        is_long = direction.upper() == "LONG"
+        price = 92450.0 if "BTC" in clean_coin else (3150.0 if "ETH" in clean_coin else 185.0)
+        entry_low = round(price * 0.995, 2)
+        entry_high = round(price * 1.005, 2)
+        tp1 = round(price * 1.025, 2) if is_long else round(price * 0.975, 2)
+        tp2 = round(price * 1.055, 2) if is_long else round(price * 0.945, 2)
+        tp3 = round(price * 1.085, 2) if is_long else round(price * 0.915, 2)
+        sl = round(price * 0.98, 2) if is_long else round(price * 1.02, 2)
+        sup = round(price * 0.975, 2)
+        res = round(price * 1.035, 2)
+
+        sample_setup = TradeSetup(
+            coin=clean_coin,
+            direction="LONG" if is_long else "SHORT",
+            current_price=price,
+            entry_low=entry_low,
+            entry_high=entry_high,
+            target_price=tp3,
+            stop_loss=sl,
+            risk_reward=2.8,
+            support_level=sup,
+            resistance_level=res,
+            rsi_1h=39.2 if is_long else 68.4,
+            ma20_1h=round(price * 0.997, 2),
+            ma50_1h=round(price * 0.991, 2),
+            ma50_4h=round(price * 0.984, 2),
+            timeframe="1h/4h",
+            reasons=["Key structural liquidity sweep confirmed", "1H RSI momentum divergence"],
+            df_1h=pd.DataFrame(),
+            df_4h=pd.DataFrame(),
+        )
+
+        cashtag = f"${clean_coin.replace('USDT', '')}"
+        bias = "Bullish" if is_long else "Bearish"
+        canonical = normalize_post_style(style)
+        return self._generate_template_fallback(sample_setup, cashtag=cashtag, bias=bias, post_style=canonical)
