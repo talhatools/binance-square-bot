@@ -117,6 +117,37 @@ Structure:
 ]
 
 
+POST_STYLE_ARCHETYPE_MAP = {
+    "sniper": "ultra_short_sniper",
+    "danger_zone": "exhaustion_danger_zone",
+    "technical": "technical_multi_tp",
+    "conversational": "conversational_community_hook",
+    "clean": "clean_trading_idea",
+    "whale": "whale_trap_thesis",
+    "reversal": "big_reversal_recovery",
+}
+
+
+def normalize_post_style(style_str: Optional[str]) -> str:
+    """Normalizes user/config post style input to canonical archetype key."""
+    s = (style_str or "auto").strip().lower().replace("-", "_").replace(" ", "_")
+    if s in ("sniper", "short", "ultra_short", "fast", "ultra_short_sniper"):
+        return "sniper"
+    if s in ("danger_zone", "danger", "trap", "breakdown", "exhaustion", "exhaustion_danger_zone"):
+        return "danger_zone"
+    if s in ("technical", "tech", "multi_tp", "indicator", "technical_multi_tp"):
+        return "technical"
+    if s in ("conversational", "community", "question", "story", "conversational_community_hook"):
+        return "conversational"
+    if s in ("clean", "idea", "trading_idea", "simple", "clean_trading_idea"):
+        return "clean"
+    if s in ("whale", "smart_money", "order_book", "whale_trap_thesis"):
+        return "whale"
+    if s in ("reversal", "bounce", "recovery", "contrarian", "big_reversal_recovery"):
+        return "reversal"
+    return "auto"
+
+
 def format_price(val: float) -> str:
     """Formats numeric crypto prices dynamically based on magnitude."""
     if val >= 1000:
@@ -139,12 +170,14 @@ class AIWriter:
         max_retries: int = 3,
         retry_delay_base: float = 2.0,
         disable_api: bool = False,
+        default_post_style: str = "auto",
     ):
         self.api_key = api_key
         self.model = model
         self.max_retries = max_retries
         self.retry_delay_base = retry_delay_base
         self.disable_api = disable_api
+        self.default_post_style = default_post_style
         self.client = Anthropic(api_key=api_key) if (api_key and not disable_api) else None
 
     def _calculate_laddered_targets(self, setup: TradeSetup) -> Dict[str, float]:
@@ -183,25 +216,27 @@ class AIWriter:
             "pct_sl": abs(pct_sl),
         }
 
-    def generate_post_text(self, setup: TradeSetup) -> str:
+    def generate_post_text(self, setup: TradeSetup, post_style: Optional[str] = None) -> str:
         """
         Generates a Binance Square post dynamically styled after top-performing
         competitors (ranging from ultra-short sniper calls to detailed technical multi-TPs).
+        Allows choosing a specific post style or auto-rotating.
         """
         base_asset = setup.coin.replace("USDT", "")
         cashtag = f"${base_asset}"
         bias = "Bullish" if setup.direction == "LONG" else "Bearish"
+        chosen_style = normalize_post_style(post_style or self.default_post_style)
 
-        # If Claude API is disabled or not configured, generate a varied competitor template (free)
+        # If Claude API is disabled or not configured, generate competitor template (free)
         if self.disable_api or not self.client or not self.api_key or self.api_key.startswith("your_"):
-            logger.info("Using varied competitor-style template generator (free mode, no Claude API cost).")
-            return self._generate_template_fallback(setup, cashtag, bias)
+            logger.info(f"Using competitor template generator (style: {chosen_style}, free mode).")
+            return self._generate_template_fallback(setup, cashtag, bias, post_style=chosen_style)
 
-        prompt = self._build_prompt(setup, cashtag, bias)
+        prompt = self._build_prompt(setup, cashtag, bias, post_style=chosen_style)
 
         for attempt in range(self.max_retries):
             try:
-                logger.info(f"Calling Anthropic API ({self.model}) - Attempt {attempt + 1}")
+                logger.info(f"Calling Anthropic API ({self.model}, style: {chosen_style}) - Attempt {attempt + 1}")
                 message = self.client.messages.create(
                     model=self.model,
                     max_tokens=300,
@@ -212,7 +247,7 @@ class AIWriter:
                 # Enforce no disclaimers, proper trade CTA, and character limit
                 response_text = self._enforce_length_and_cta(response_text)
 
-                logger.info(f"Generated AI post ({len(response_text)} chars):\n{response_text}")
+                logger.info(f"Generated AI post ({len(response_text)} chars, style: {chosen_style}):\n{response_text}")
                 return response_text
 
             except RateLimitError as exc:
@@ -225,13 +260,20 @@ class AIWriter:
                 time.sleep(delay)
 
         logger.error("Claude API retries exhausted. Falling back to template text.")
-        return self._generate_template_fallback(setup, cashtag, bias)
+        return self._generate_template_fallback(setup, cashtag, bias, post_style=chosen_style)
 
-    def _build_prompt(self, setup: TradeSetup, cashtag: str, bias: str) -> str:
+    def _build_prompt(self, setup: TradeSetup, cashtag: str, bias: str, post_style: str = "auto") -> str:
         base_asset = setup.coin.replace("USDT", "")
         action = "LONG" if setup.direction == "LONG" else "SHORT"
         targets = self._calculate_laddered_targets(setup)
-        archetype = random.choice(COMPETITOR_ARCHETYPES)
+
+        archetype_name = POST_STYLE_ARCHETYPE_MAP.get(post_style)
+        archetype = None
+        if archetype_name:
+            archetype = next((a for a in COMPETITOR_ARCHETYPES if a["name"] == archetype_name), None)
+        if not archetype:
+            archetype = random.choice(COMPETITOR_ARCHETYPES)
+
         reasons_bullet = "\n- ".join(setup.reasons)
 
         instruction = archetype["prompt_instruction"].format(
@@ -334,10 +376,16 @@ Strict Rules:
         """Backwards compatibility alias for _enforce_length_and_cta without disclaimers."""
         return self._enforce_length_and_cta(text)
 
-    def _generate_template_fallback(self, setup: TradeSetup, cashtag: str, bias: str) -> str:
+    def _generate_template_fallback(
+        self,
+        setup: TradeSetup,
+        cashtag: str,
+        bias: str,
+        post_style: str = "auto",
+    ) -> str:
         """
-        Deterministic varied template generator modeled directly on real high-performing
-        competitor posts, varying dynamically between ultra-short, normal, and detailed setups.
+        Deterministic template generator modeled directly on real high-performing competitor posts.
+        Returns the chosen post_style template, or picks a varied template if post_style is 'auto'.
         """
         base_asset = setup.coin.replace("USDT", "")
         direction = setup.direction
@@ -358,9 +406,9 @@ Strict Rules:
         level_type = "support" if direction == "LONG" else "resistance"
         opponents = "bears" if direction == "LONG" else "bulls"
 
-        templates = [
-            # 1. Ultra-Short / Fast Sniper Alert (Competitor 1 style)
-            (
+        templates_map = {
+            # 1. Ultra-Short / Fast Sniper Alert (under 250 chars)
+            "sniper": (
                 f"🚀 Guys, {action} {cashtag} Now!\n\n"
                 f"📍 Entry Current Price: {f_curr}\n\n"
                 f"🎯 TP1: {f_tp1}\n"
@@ -368,9 +416,8 @@ Strict Rules:
                 f"🛑 Stop Loss: {f_sl}\n\n"
                 f"👉 Execute trade on {cashtag} now! 💰"
             ),
-
-            # 2. Danger Zone / Liquidity Trap Breakdown (Competitor 2 style)
-            (
+            # 2. Danger Zone / Liquidity Trap Breakdown
+            "danger_zone": (
                 f"{cashtag} IS ENTERING THE CRITICAL DANGER ZONE ... WATCHING FOR THE UNWIND\n\n"
                 f"I’m looking for a BIG {direction.upper()} on {cashtag} around this area.\n\n"
                 f"📍 Entry: {f_entry_low} - {f_entry_high}\n"
@@ -382,9 +429,8 @@ Strict Rules:
                 f"1H RSI ({setup.rsi_1h:.1f}) signals {'seller' if direction == 'LONG' else 'buyer'} exhaustion while liquidity sits {'higher' if direction == 'LONG' else 'lower'}.\n\n"
                 f"Trade on {cashtag} here 👇"
             ),
-
-            # 3. Technical Multi-Target Breakdown with % (Competitor 3 style)
-            (
+            # 3. Technical Multi-Target Breakdown with % and indicators
+            "technical": (
                 f"{base_asset} is reacting at key structure on the 1H/4H chart.\n\n"
                 f"{'🔴 SHORT' if direction == 'SHORT' else '🟢 LONG'} {cashtag} /USDT\n"
                 f"Bias: {bias.upper()} · R:R {setup.risk_reward:.1f}\n\n"
@@ -398,9 +444,8 @@ Strict Rules:
                 f"Plan: Lock half at TP1, move stop to entry.\n\n"
                 f"👇 Tap below to execute trade on {cashtag}!"
             ),
-
-            # 4. Conversational Community Hook & Question (Competitor 4 & 7 style)
-            (
+            # 4. Conversational Community Hook & Question
+            "conversational": (
                 f"guys, have you seen what’s happening with {cashtag} ? 🚨\n\n"
                 f"Price made an aggressive push into {f_key_level}, but momentum is showing clear exhaustion on 1H/4H. "
                 f"I'm not convinced {opponents} can hold this level.\n\n"
@@ -412,9 +457,8 @@ Strict Rules:
                 f"Are the {opponents} running out of fuel? 👇\n"
                 f"Trade {cashtag} below! 🔥"
             ),
-
-            # 5. Clean Snappy Trading Idea + Widget CTA (Competitor 5 style)
-            (
+            # 5. Clean Snappy Trading Idea + Widget CTA
+            "clean": (
                 f"{cashtag} BIG {direction.upper()} : {base_asset} is testing key {level_type}, and a clean {'bounce' if direction == 'LONG' else 'rejection'} here "
                 f"triggers another sharp move toward {'higher targets' if direction == 'LONG' else 'lower support'}!\n\n"
                 f"Trading Setup {direction.upper()} {cashtag}:\n"
@@ -425,9 +469,8 @@ Strict Rules:
                 f"🎯 TP3: {f_tp3}\n\n"
                 f"Trade {cashtag} here :👇"
             ),
-
-            # 6. Whale / Order Book Trap Conviction (Competitor 6 style)
-            (
+            # 6. Whale / Order Book Trap Conviction
+            "whale": (
                 f"{cashtag} The harder they {'dump' if direction == 'LONG' else 'pump'} it into {level_type}, the harder the reversal! "
                 f"That’s how big players trap late retail before the real trend expansion.\n\n"
                 f"High Conviction {direction.upper()} Setup:\n"
@@ -436,9 +479,8 @@ Strict Rules:
                 f"🛑 SL: {f_sl} (R:R {setup.risk_reward:.1f})\n\n"
                 f"Don't fight the smart money. Just go {direction.lower()} on {cashtag} and lock in gains! ⚡"
             ),
-
-            # 7. Big Reversal / Flush Recovery Long/Short (Competitor 9 style)
-            (
+            # 7. Big Reversal / Flush Recovery Long/Short
+            "reversal": (
                 f"I’m going to open a BIG {direction.upper()} on {cashtag} here.\n\n"
                 f"📍 Entry: {f_entry_low} - {f_entry_high}\n"
                 f"🎯 TP: {f_tp3}\n"
@@ -448,5 +490,9 @@ Strict Rules:
                 f"The {'flush' if direction == 'LONG' else 'pump'} already happened. Now let's catch the recovery wave!\n"
                 f"Trade {cashtag} now! 🚀"
             ),
-        ]
-        return random.choice(templates)
+        }
+
+        canonical_style = normalize_post_style(post_style)
+        if canonical_style in templates_map:
+            return templates_map[canonical_style]
+        return random.choice(list(templates_map.values()))

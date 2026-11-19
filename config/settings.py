@@ -94,6 +94,9 @@ class Settings:
     chart_style: str = field(
         default_factory=lambda: os.getenv("CHART_STYLE", "sada").strip().lower()
     )
+    post_style: str = field(
+        default_factory=lambda: os.getenv("POST_STYLE", "auto").strip().lower()
+    )
 
     # Notifications & Alerts (Discord/Slack Webhook or Telegram Bot)
     webhook_url: str = field(

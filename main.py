@@ -197,11 +197,20 @@ def main():
         default=None,
         help="Filter coins by minimum 24h Futures USDT volume in Millions (e.g. 10, 25, 50, 100) or exact USDT (e.g. 25000000).",
     )
+    parser.add_argument(
+        "--post-style",
+        choices=["auto", "sniper", "technical", "clean", "conversational", "danger_zone", "whale", "reversal"],
+        default=None,
+        help="Copywriting post style: sniper, technical, clean, conversational, danger_zone, whale, reversal, or auto (random).",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
     if args.chart_style:
         settings.chart_style = args.chart_style
+
+    if args.post_style:
+        settings.post_style = args.post_style.strip().lower()
 
     if args.min_volume is not None:
         vol = float(args.min_volume)
@@ -276,7 +285,12 @@ def main():
     if args.run_once:
         coin_arg = args.coin.upper().strip() if args.coin else None
         logger.info(f"Executing single posting cycle (--run-once, force={args.force}, coin={coin_arg or 'auto'})...")
-        result = bot.run_cycle(force=args.force, coin=coin_arg, min_volume=settings.min_24h_quote_volume)
+        result = bot.run_cycle(
+            force=args.force,
+            coin=coin_arg,
+            min_volume=settings.min_24h_quote_volume,
+            post_style=settings.post_style,
+        )
         tracker.evaluate_pending_signals()
         if result:
             print(f"\nCompleted cycle for {result['coin']} [{result['direction']}]. Status: {result['status']}")

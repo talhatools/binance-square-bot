@@ -34,6 +34,20 @@ on:
         required: false
         type: string
         default: ''
+      post_style:
+        description: 'Post Copywriting Style (auto=Rotate All, sniper=Short Alert, technical=In-depth TA, clean=Clean Setup, conversational=Question Hook, danger_zone=Breakdown Trap, whale=Smart Money, reversal=Trend Reversal)'
+        required: false
+        type: choice
+        options:
+          - auto
+          - sniper
+          - technical
+          - clean
+          - conversational
+          - danger_zone
+          - whale
+          - reversal
+        default: 'auto'
 
 concurrency:
   group: binance-square-posting
@@ -75,6 +89,7 @@ jobs:
           DRY_RUN: "false"
           CHART_STYLE: ${{ github.event.inputs.chart_style || vars.CHART_STYLE || 'sada' }}
           WATERMARK_TEXT: ${{ vars.WATERMARK_TEXT || secrets.WATERMARK_TEXT || 'Talha Sniper' }}
+          POST_STYLE: ${{ github.event.inputs.post_style || vars.POST_STYLE || 'auto' }}
           MIN_24H_QUOTE_VOLUME: ${{ github.event.inputs.min_volume_millions || vars.MIN_24H_QUOTE_VOLUME || '25000000' }}
           COOLDOWN_HOURS: "3"
           DAILY_POST_LIMIT: "100"
@@ -84,21 +99,28 @@ jobs:
         run: |
           COIN_INPUT="${{ github.event.inputs.coin }}"
           VOL_INPUT="${{ github.event.inputs.min_volume_millions }}"
+          STYLE_INPUT="${{ github.event.inputs.post_style }}"
           VOL_FLAG=""
           if [ -n "$VOL_INPUT" ]; then
             echo "Custom 24h Futures Volume Filter specified: $VOL_INPUT Million USDT"
             VOL_FLAG="--min-volume $VOL_INPUT"
           fi
 
+          STYLE_FLAG=""
+          if [ -n "$STYLE_INPUT" ] && [ "$STYLE_INPUT" != "auto" ]; then
+            echo "Custom Post Style specified: $STYLE_INPUT"
+            STYLE_FLAG="--post-style $STYLE_INPUT"
+          fi
+
           if [ -n "$COIN_INPUT" ]; then
             echo "Running in SPECIFIC COIN mode: $COIN_INPUT (force mode auto-enabled)..."
-            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG
+            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $STYLE_FLAG
           elif [ "${{ github.event.inputs.force_run }}" = "true" ]; then
             echo "Running in high-priority force mode (bypassing coin cooldown)..."
-            python main.py --run-once --force $VOL_FLAG
+            python main.py --run-once --force $VOL_FLAG $STYLE_FLAG
           else
             echo "Running in standard cooldown mode (guaranteeing different coins)..."
-            python main.py --run-once $VOL_FLAG
+            python main.py --run-once $VOL_FLAG $STYLE_FLAG
           fi
 
       - name: Save Updated SQLite Database Cache

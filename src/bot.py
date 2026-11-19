@@ -35,6 +35,7 @@ class PostingBot:
             max_retries=settings.max_retries,
             retry_delay_base=settings.retry_delay_base,
             disable_api=settings.disable_claude_api,
+            default_post_style=getattr(settings, "post_style", "auto"),
         )
         self.publisher = SquarePublisher(
             api_key=settings.square_openapi_key,
@@ -102,6 +103,7 @@ class PostingBot:
         force: bool = False,
         coin: str = None,
         min_volume: Optional[float] = None,
+        post_style: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Executes one full iteration of the automated posting pipeline:
@@ -237,8 +239,9 @@ class PostingBot:
 
         # 6. Draft Text with Claude API (or Fallback Template)
         try:
-            post_text = self.ai_writer.generate_post_text(setup)
-            logger.info(f"Generated Post Content ({len(post_text)} chars):\n{post_text}")
+            chosen_post_style = post_style or getattr(self.settings, "post_style", "auto")
+            post_text = self.ai_writer.generate_post_text(setup, post_style=chosen_post_style)
+            logger.info(f"Generated Post Content ({len(post_text)} chars) [Style: {chosen_post_style}]:\n{post_text}")
         except Exception as exc:
             logger.error(f"Failed to draft post text for {symbol}: {exc}", exc_info=True)
             return None

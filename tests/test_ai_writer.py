@@ -36,3 +36,20 @@ def test_clean_disclaimers():
     assert "financial advice" not in cleaned.lower()
     assert "dyor" not in cleaned.lower()
     assert "$SOL setup." in cleaned
+
+
+def test_post_style_selection():
+    writer = AIWriter(api_key=None)
+    analyzer = TechnicalAnalyzer()
+    df_1h = _generate_synthetic_candles(60, "bullish")
+    df_4h = _generate_synthetic_candles(60, "bullish")
+    setup = analyzer.analyze("ETHUSDT", df_1h, df_4h)
+
+    styles = ["sniper", "technical", "clean", "conversational", "danger_zone", "whale", "reversal"]
+    for style in styles:
+        text = writer.generate_post_text(setup, post_style=style)
+        assert "$ETH" in text
+        assert len(text) > 20
+        assert "not financial advice" not in text.lower()
+        assert "dyor" not in text.lower()
+
