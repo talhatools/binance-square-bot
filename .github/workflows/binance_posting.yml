@@ -35,33 +35,19 @@ on:
         type: string
         default: ''
       post_style:
-        description: |
-          👇 HAR POST STYLE KA FORMAT PREVIEW (Neeche box me choose karein):
-          • [clean] ➔ ✨ $BTC BIG LONG : Testing support, clean bounce! Entry: $91k-$92k | SL: $89.8k | TP1: $93.5k
-          • [sniper] ➔ 🚀 Guys, LONG $BTC Now! Entry: $91,200 | TP1: $93,500 | SL: $89,800
-          • [technical] ➔ 📊 Multi-TF TA on $BTC. MA20 held + RSI 58 | TP1 (+2.5%), TP2 (+5%) | SL: $89.8k
-          • [conversational] ➔ 💬 guys, have you seen what’s happening with $BTC ? 🚨 Question hook community
-          • [danger_zone] ➔ ⚠️ $BTC ENTERING CRITICAL DANGER ZONE ... UNWIND breakdown trap
-          • [whale] ➔ 🐋 Order book whale trap | The harder they dump, harder the reversal!
-          • [reversal] ➔ 🔄 I’m going to open a BIG LONG on $BTC here | Catch recovery wave! 🚀
-          • [auto] ➔ Har bar in tamam styles me se naya high-converting style rotate karega.
+        description: 'Post Copywriting Style (auto=Rotate All, sniper=Short Alert, technical=In-depth TA, clean=Clean Setup, conversational=Question Hook, danger_zone=Breakdown Trap, whale=Smart Money, reversal=Trend Reversal)'
         required: false
         type: choice
         options:
-          - "auto ➔ (Har bar naya high-converting style rotate karega)"
-          - "clean ➔ ✨ $BTC BIG LONG : Clean Setup | Entry: $91k | TP1: $93.5k"
-          - "sniper ➔ 🚀 Guys, LONG $BTC Now! Entry: $91k | TP1: $93.5k | SL: $89.8k"
-          - "technical ➔ 📊 Multi-TF TA on $BTC | MA20 + RSI | Multi-TPs with %"
-          - "conversational ➔ 💬 guys, have you seen what’s happening with $BTC ? 🚨"
-          - "danger_zone ➔ ⚠️ $BTC CRITICAL DANGER ZONE ... UNWIND breakdown trap"
-          - "whale ➔ 🐋 Order book whale trap | The harder they dump, harder the reversal!"
-          - "reversal ➔ 🔄 I’m going to open a BIG LONG on $BTC here | Recovery wave"
-        default: "auto ➔ (Har bar naya high-converting style rotate karega)"
-      preview_only:
-        description: '👁️ Sirf Post Preview Dekhna Hai (Binance par publish mat karo)'
-        required: false
-        type: boolean
-        default: false
+          - auto
+          - sniper
+          - technical
+          - clean
+          - conversational
+          - danger_zone
+          - whale
+          - reversal
+        default: 'auto'
 
 concurrency:
   group: binance-square-posting
@@ -129,22 +115,15 @@ jobs:
             fi
           fi
 
-          PREVIEW_INPUT="${{ github.event.inputs.preview_only }}"
-          PREVIEW_FLAG=""
-          if [ "$PREVIEW_INPUT" = "true" ]; then
-            echo "👁️ PREVIEW ONLY MODE: Generating post text and chart without live publishing..."
-            PREVIEW_FLAG="--dry-run"
-          fi
-
           if [ -n "$COIN_INPUT" ]; then
             echo "Running in SPECIFIC COIN mode: $COIN_INPUT (force mode auto-enabled)..."
-            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
+            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $STYLE_FLAG
           elif [ "${{ github.event.inputs.force_run }}" = "true" ]; then
             echo "Running in high-priority force mode (bypassing coin cooldown)..."
-            python main.py --run-once --force $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
+            python main.py --run-once --force $VOL_FLAG $STYLE_FLAG
           else
             echo "Running in standard cooldown mode (guaranteeing different coins)..."
-            python main.py --run-once $VOL_FLAG $STYLE_FLAG $PREVIEW_FLAG
+            python main.py --run-once $VOL_FLAG $STYLE_FLAG
           fi
 
       - name: Generate Post Run Summary
