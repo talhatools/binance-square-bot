@@ -132,65 +132,54 @@ def normalize_post_style(style_str: Optional[str]) -> str:
     """Normalizes user/config post style input to canonical archetype key."""
     if not style_str:
         return "auto"
-    raw = style_str.strip().lower()
-    # Extract first token if user selected from verbose option list (e.g. "sniper - 🚀 Guys...")
-    first_part = re.split(r"\s*[-:]\s*|\s+", raw)[0] if raw else "auto"
+    raw = str(style_str).strip().lower()
+    # Extract first token if user passed verbose string (e.g. "auto (Rotate all styles)" or "sniper - 🚀 Guys...")
+    first_token = re.split(r"[\s\-_:(]+", raw)[0] if raw else "auto"
 
-    # Prioritize exact token match on first_part, then raw
-    for candidate in (first_part, raw):
-        if candidate in ("sniper", "short", "ultra_short", "fast"):
+    for candidate in (first_token, raw):
+        s = candidate.replace("-", "_").replace(" ", "_")
+        if s in ("sniper", "short", "ultra_short", "fast", "ultra_short_sniper"):
             return "sniper"
-        if candidate in ("danger_zone", "danger", "exhaustion"):
+        if s in ("danger_zone", "danger", "trap", "breakdown", "exhaustion", "exhaustion_danger_zone"):
             return "danger_zone"
-        if candidate in ("technical", "tech", "multi_tp"):
+        if s in ("technical", "tech", "multi_tp", "indicator", "technical_multi_tp"):
             return "technical"
-        if candidate in ("conversational", "community", "question", "story"):
+        if s in ("conversational", "community", "question", "story", "conversational_community_hook"):
             return "conversational"
-        if candidate in ("clean", "idea", "trading_idea", "simple"):
+        if s in ("clean", "idea", "trading_idea", "simple", "clean_trading_idea"):
             return "clean"
-        if candidate in ("whale", "smart_money", "order_book"):
+        if s in ("whale", "smart_money", "order_book", "whale_trap_thesis"):
             return "whale"
-        if candidate in ("reversal", "bounce", "recovery", "contrarian"):
+        if s in ("reversal", "bounce", "recovery", "contrarian", "big_reversal_recovery"):
             return "reversal"
-        if candidate in ("auto", "random", "default"):
+        if s in ("auto", "random", "default"):
             return "auto"
 
-    # Substring checks on first_part only to avoid cross-contamination from description text
-    if "sniper" in first_part:
-        return "sniper"
-    if "danger" in first_part:
-        return "danger_zone"
-    if "tech" in first_part:
-        return "technical"
-    if "conversat" in first_part or "communit" in first_part:
-        return "conversational"
-    if "clean" in first_part:
-        return "clean"
-    if "whale" in first_part:
-        return "whale"
-    if "revers" in first_part or "bounce" in first_part:
-        return "reversal"
     return "auto"
 
 
-def get_sample_posts() -> Dict[str, str]:
+def get_sample_posts(coin: str = "BTC") -> Dict[str, str]:
     """Generates preview sample posts for each available style using a model setup."""
     import pandas as pd
+    clean_coin = coin.replace("$", "").replace("/", "").replace("-", "").strip().upper()
+    if not clean_coin.endswith("USDT"):
+        clean_coin = clean_coin + "USDT"
+
     dummy_setup = TradeSetup(
-        coin="BTCUSDT",
+        coin=clean_coin,
         direction="LONG",
-        current_price=91500.0,
-        entry_low=91200.0,
-        entry_high=91800.0,
-        target_price=95000.0,
-        stop_loss=89800.0,
+        current_price=91500.0 if "BTC" in clean_coin else 2850.0,
+        entry_low=91200.0 if "BTC" in clean_coin else 2830.0,
+        entry_high=91800.0 if "BTC" in clean_coin else 2870.0,
+        target_price=95000.0 if "BTC" in clean_coin else 3050.0,
+        stop_loss=89800.0 if "BTC" in clean_coin else 2760.0,
         risk_reward=2.8,
-        support_level=90500.0,
-        resistance_level=95500.0,
+        support_level=90500.0 if "BTC" in clean_coin else 2800.0,
+        resistance_level=95500.0 if "BTC" in clean_coin else 3100.0,
         rsi_1h=56.4,
-        ma20_1h=91150.0,
-        ma50_1h=90800.0,
-        ma50_4h=89500.0,
+        ma20_1h=91150.0 if "BTC" in clean_coin else 2840.0,
+        ma50_1h=90800.0 if "BTC" in clean_coin else 2810.0,
+        ma50_4h=89500.0 if "BTC" in clean_coin else 2750.0,
         timeframe="1h",
         reasons=["Clean 1H MA20 bounce", "Bullish RSI continuation above 50"],
         df_1h=pd.DataFrame(),

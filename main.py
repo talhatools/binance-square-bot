@@ -201,7 +201,7 @@ def main():
         "--post-style",
         type=str,
         default=None,
-        help="Copywriting post style (e.g. sniper, technical, clean, conversational, danger_zone, whale, reversal, auto).",
+        help="Copywriting post style: sniper, technical, clean, conversational, danger_zone, whale, reversal, or auto.",
     )
     parser.add_argument(
         "--preview-styles",
@@ -216,11 +216,11 @@ def main():
     )
     args = parser.parse_args()
 
-    # Fast exit for preview-styles or dummy-style (no logging or API checks needed)
+    # Fast exit for preview-styles or dummy-style (no network or API checks needed)
     if args.preview_styles or args.dummy_style:
         from src.ai_writer import get_sample_posts, normalize_post_style
         requested = (args.dummy_style or "all").lower()
-        samples = get_sample_posts()
+        samples = get_sample_posts(coin=args.coin or "BTC")
 
         print("\n" + "=" * 65)
         print("📝 BINANCE SQUARE BOT - POST COPYWRITING STYLES PREVIEW")
