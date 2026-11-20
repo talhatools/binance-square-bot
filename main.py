@@ -3,7 +3,6 @@ import os
 import sys
 import argparse
 import logging
-from typing import Optional
 from logging.handlers import RotatingFileHandler
 from datetime import datetime, timezone
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -88,48 +87,6 @@ def print_daily_summary(settings):
     print("=" * 50 + "\n")
 
     notifier.notify_daily_summary(summary)
-
-
-def print_post_preview(post_text: str, coin: str, direction: str, style: str, status: str = "PREVIEW"):
-    """Prints a prominent visual preview box of the generated Binance Square post."""
-    dir_emoji = "🟢 LONG" if direction.upper() == "LONG" else "🔴 SHORT"
-    border = "=" * 65
-    print("\n" + border)
-    print(f"📝 BINANCE SQUARE POST PREVIEW [{status.upper()}]")
-    print(f"   Coin: ${coin.replace('USDT', '')} ({coin}) | Bias: {dir_emoji} | Style: {style}")
-    print(border)
-    print(post_text)
-    print(border)
-    print(f"   Characters: {len(post_text)} / 600\n")
-
-
-def append_github_step_summary(post_text: str, coin: str, direction: str, style: str, status: str, chart_path: Optional[str] = None):
-    """Writes a formatted markdown preview card to GITHUB_STEP_SUMMARY for GitHub Actions UI."""
-    summary_path = os.getenv("GITHUB_STEP_SUMMARY")
-    if not summary_path:
-        return
-    try:
-        dir_emoji = "🟢 LONG" if direction.upper() == "LONG" else "🔴 SHORT"
-        content = f"""
-## 📱 Binance Square Post Preview ({status})
-
-| Parameter | Value |
-| :--- | :--- |
-| **Coin** | **`${coin.replace('USDT', '')}`** (`{coin}`) |
-| **Trade Direction** | **{dir_emoji}** |
-| **Post Style** | `{style}` |
-| **Status** | `{status}` |
-| **Length** | `{len(post_text)} / 600 characters` |
-
-### 📄 Post Content Preview:
-```text
-{post_text}
-```
-"""
-        with open(summary_path, "a", encoding="utf-8") as f:
-            f.write(content + "\n")
-    except Exception:
-        pass
 
 
 def check_or_prompt_api_key(settings, logger):
@@ -242,34 +199,59 @@ def main():
     )
     parser.add_argument(
         "--post-style",
-        choices=["auto", "sniper", "technical", "clean", "conversational", "danger_zone", "whale", "reversal"],
+        type=str,
         default=None,
-        help="Copywriting post style: sniper, technical, clean, conversational, danger_zone, whale, reversal, or auto (random).",
-    )
-    parser.add_argument(
-        "--preview",
-        action="store_true",
-        help="Generate trade setup, chart, and post text preview without publishing to Binance Square.",
+        help="Copywriting post style (e.g. sniper, technical, clean, conversational, danger_zone, whale, reversal, auto).",
     )
     parser.add_argument(
         "--preview-styles",
         action="store_true",
-        help="Display sample post previews for all 7 copywriting styles.",
+        help="Display live preview samples of all post copywriting styles and exit.",
     )
     parser.add_argument(
         "--dummy-style",
         type=str,
         default=None,
-        help="Display instant dummy post preview for the chosen style without market scan or live posting.",
+        help="Generate and print dummy post preview for given style (or 'all') and exit.",
     )
     args = parser.parse_args()
+
+    # Fast exit for preview-styles or dummy-style (no logging or API checks needed)
+    if args.preview_styles or args.dummy_style:
+        from src.ai_writer import get_sample_posts, normalize_post_style
+        requested = (args.dummy_style or "all").lower()
+        samples = get_sample_posts()
+
+        print("\n" + "=" * 65)
+        print("📝 BINANCE SQUARE BOT - POST COPYWRITING STYLES PREVIEW")
+        print("=" * 65)
+
+        if "all" in requested or args.preview_styles:
+            for name, text in samples.items():
+                print(f"\n👉 [STYLE: {name.upper()}]")
+                print("-" * 55)
+                print(text)
+                print("-" * 55)
+        else:
+            style_key = normalize_post_style(requested)
+            text = samples.get(style_key, samples.get("sniper"))
+            print(f"\n👉 [CHOSEN STYLE: {style_key.upper()}]")
+            print("-" * 55)
+            print(text)
+            print("-" * 55)
+
+        print("\n" + "=" * 65)
+        print("💡 TIP: Use '--post-style <name>' or GitHub Actions dropdown to pick a style.")
+        print("=" * 65 + "\n")
+        return
 
     settings = get_settings()
     if args.chart_style:
         settings.chart_style = args.chart_style
 
     if args.post_style:
-        settings.post_style = args.post_style.strip().lower()
+        from src.ai_writer import normalize_post_style
+        settings.post_style = normalize_post_style(args.post_style)
 
     if args.min_volume is not None:
         vol = float(args.min_volume)
@@ -277,7 +259,7 @@ def main():
             vol = vol * 1_000_000.0
         settings.min_24h_quote_volume = vol
 
-    if args.dry_run or args.preview:
+    if args.dry_run:
         settings.dry_run = True
 
     if args.interval and args.interval > 0:
@@ -286,86 +268,13 @@ def main():
     setup_logging(settings.logs_dir, settings.log_level)
     logger = logging.getLogger("main")
 
-    is_info_mode = (
-        args.summary
-        or args.stats
-        or args.history
-        or args.track_signals
-        or args.preview_styles
-        or args.preview
-        or bool(args.dummy_style)
-    )
+    is_info_mode = args.summary or args.stats or args.history or args.track_signals
     if not is_info_mode:
         check_or_prompt_api_key(settings, logger)
 
     logger.info("Initializing Binance Square Posting Bot...")
     bot = PostingBot(settings)
     tracker = PerformanceTracker(bot.client, bot.db)
-
-    # 0. Instant Dummy Post Style Preview
-    if args.dummy_style:
-        from src.ai_writer import normalize_post_style
-        coin = args.coin or "BTC"
-        canonical = normalize_post_style(args.dummy_style)
-        clean_coin = coin.replace("$", "").replace("/", "").strip().upper()
-
-        if canonical == "all" or canonical == "auto":
-            previews = bot.ai_writer.generate_all_style_previews(coin=clean_coin, direction="LONG")
-            print("\n" + "=" * 70)
-            print(f"👁️ ALL 7 DUMMY POST STYLES (Coin: ${clean_coin})")
-            print("=" * 70)
-            for name, text in previews.items():
-                print(f"\n--- [ DUMMY STYLE: {name.upper()} ] ---")
-                print(text)
-                print(f"\nCharacters: {len(text)} / 600")
-                print("-" * 50)
-            print("=" * 70 + "\n")
-
-            summary_path = os.getenv("GITHUB_STEP_SUMMARY")
-            if summary_path:
-                try:
-                    with open(summary_path, "a", encoding="utf-8") as f:
-                        f.write(f"## 👁️ All Post Styles Dummy Preview (${clean_coin})\n\n")
-                        for name, text in previews.items():
-                            f.write(f"### Style: `{name}` ({len(text)} chars)\n```text\n{text}\n```\n\n")
-                except Exception:
-                    pass
-            return
-        else:
-            long_text = bot.ai_writer.generate_single_style_preview(canonical, coin=clean_coin, direction="LONG")
-            short_text = bot.ai_writer.generate_single_style_preview(canonical, coin=clean_coin, direction="SHORT")
-
-            print("\n" + "=" * 70)
-            print(f"👁️ DUMMY POST PREVIEW [STYLE: {canonical.upper()}] (Coin: ${clean_coin})")
-            print("=" * 70)
-            print(f"\n🟢 [LONG SETUP PREVIEW]:\n{long_text}\n(Length: {len(long_text)} chars)")
-            print("-" * 50)
-            print(f"\n🔴 [SHORT SETUP PREVIEW]:\n{short_text}\n(Length: {len(short_text)} chars)")
-            print("=" * 70 + "\n")
-
-            summary_path = os.getenv("GITHUB_STEP_SUMMARY")
-            if summary_path:
-                try:
-                    summary_content = f"""
-## 👁️ Post Style Dummy Preview: `{canonical}` (${clean_coin})
-
-> 💡 **Pure Style Preview:** Yeh sirf post format dekhane ke liye dummy preview hai (koi live post ya market scan nahi hua).
-
-### 🟢 LONG Setup Dummy Post ({len(long_text)} chars):
-```text
-{long_text}
-```
-
-### 🔴 SHORT Setup Dummy Post ({len(short_text)} chars):
-```text
-{short_text}
-```
-"""
-                    with open(summary_path, "a", encoding="utf-8") as f:
-                        f.write(summary_content + "\n")
-                except Exception:
-                    pass
-            return
 
     # 1. Summary mode
     if args.summary:
@@ -413,64 +322,20 @@ def main():
         print(f"Evaluated signals: {resolved} resolved.")
         return
 
-    # 5. Preview all styles mode
-    if args.preview_styles:
-        coin = args.coin or "BTC"
-        previews = bot.ai_writer.generate_all_style_previews(coin=coin, direction="LONG")
-        print("\n" + "=" * 70)
-        print(f"🎨 PREVIEW OF ALL 7 POST STYLES (Sample Coin: ${coin.upper()})")
-        print("=" * 70)
-        for name, text in previews.items():
-            print(f"\n--- [ STYLE: {name.upper()} ] ---")
-            print(text)
-            print(f"\nCharacters: {len(text)} / 600")
-            print("-" * 50)
-        print("=" * 70 + "\n")
-
-        summary_path = os.getenv("GITHUB_STEP_SUMMARY")
-        if summary_path:
-            try:
-                with open(summary_path, "a", encoding="utf-8") as f:
-                    f.write(f"## 🎨 Binance Square - All Post Styles Preview (${coin.upper()})\n\n")
-                    for name, text in previews.items():
-                        f.write(f"### Style: `{name}` ({len(text)} chars)\n```text\n{text}\n```\n\n")
-            except Exception:
-                pass
-        return
-
-    # 6. Run-once / Preview mode
-    if args.run_once or args.preview:
+    # 3. Run-once mode
+    if args.run_once:
         coin_arg = args.coin.upper().strip() if args.coin else None
-        force_mode = args.force or args.preview
-        mode_label = "PREVIEW" if args.preview else "LIVE"
-        logger.info(f"Executing single cycle ({mode_label}, force={force_mode}, coin={coin_arg or 'auto'}, style={settings.post_style})...")
+        logger.info(f"Executing single posting cycle (--run-once, force={args.force}, coin={coin_arg or 'auto'})...")
         result = bot.run_cycle(
-            force=force_mode,
+            force=args.force,
             coin=coin_arg,
             min_volume=settings.min_24h_quote_volume,
             post_style=settings.post_style,
         )
-        if not args.preview:
-            tracker.evaluate_pending_signals()
-
+        tracker.evaluate_pending_signals()
         if result:
-            style_used = result.get("post_style") or settings.post_style
-            status_label = "PREVIEW ONLY" if args.preview else result.get("status", "PUBLISHED")
-            print_post_preview(
-                post_text=result["text"],
-                coin=result["coin"],
-                direction=result["direction"],
-                style=style_used,
-                status=status_label,
-            )
-            append_github_step_summary(
-                post_text=result["text"],
-                coin=result["coin"],
-                direction=result["direction"],
-                style=style_used,
-                status=status_label,
-                chart_path=result.get("chart_path"),
-            )
+            print(f"\nCompleted cycle for {result['coin']} [{result['direction']}]. Status: {result['status']}")
+            print(f"Post text:\n{result['text']}\n")
         else:
             print("\nCycle finished with no post generated (market criteria not met or cooldown active).")
         return

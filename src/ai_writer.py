@@ -4,7 +4,6 @@ import time
 import logging
 import re
 from typing import Optional, Dict, Any, List
-import pandas as pd
 from anthropic import Anthropic, APIError, RateLimitError
 from src.technical_analysis import TradeSetup
 
@@ -133,24 +132,75 @@ def normalize_post_style(style_str: Optional[str]) -> str:
     """Normalizes user/config post style input to canonical archetype key."""
     if not style_str:
         return "auto"
-    s = str(style_str).strip().lower().replace("-", "_").replace(" ", "_")
-    if s.startswith("sniper") or "sniper" in s or "short" in s or "fast" in s:
+    raw = style_str.strip().lower()
+    # Extract first token if user selected from verbose option list (e.g. "sniper - 🚀 Guys...")
+    first_part = re.split(r"\s*[-:]\s*|\s+", raw)[0] if raw else "auto"
+
+    # Prioritize exact token match on first_part, then raw
+    for candidate in (first_part, raw):
+        if candidate in ("sniper", "short", "ultra_short", "fast"):
+            return "sniper"
+        if candidate in ("danger_zone", "danger", "exhaustion"):
+            return "danger_zone"
+        if candidate in ("technical", "tech", "multi_tp"):
+            return "technical"
+        if candidate in ("conversational", "community", "question", "story"):
+            return "conversational"
+        if candidate in ("clean", "idea", "trading_idea", "simple"):
+            return "clean"
+        if candidate in ("whale", "smart_money", "order_book"):
+            return "whale"
+        if candidate in ("reversal", "bounce", "recovery", "contrarian"):
+            return "reversal"
+        if candidate in ("auto", "random", "default"):
+            return "auto"
+
+    # Substring checks on first_part only to avoid cross-contamination from description text
+    if "sniper" in first_part:
         return "sniper"
-    if s.startswith("danger") or "danger" in s or "exhaustion" in s or "trap" in s:
+    if "danger" in first_part:
         return "danger_zone"
-    if s.startswith("tech") or "technical" in s or "indicator" in s or "multi_tp" in s:
+    if "tech" in first_part:
         return "technical"
-    if s.startswith("conv") or "conversational" in s or "community" in s or "question" in s:
+    if "conversat" in first_part or "communit" in first_part:
         return "conversational"
-    if s.startswith("clean") or "simple" in s:
+    if "clean" in first_part:
         return "clean"
-    if s.startswith("whale") or "smart_money" in s or "order_book" in s:
+    if "whale" in first_part:
         return "whale"
-    if s.startswith("reversal") or "bounce" in s or "recovery" in s or "contrarian" in s:
+    if "revers" in first_part or "bounce" in first_part:
         return "reversal"
-    if "all" in s:
-        return "all"
     return "auto"
+
+
+def get_sample_posts() -> Dict[str, str]:
+    """Generates preview sample posts for each available style using a model setup."""
+    import pandas as pd
+    dummy_setup = TradeSetup(
+        coin="BTCUSDT",
+        direction="LONG",
+        current_price=91500.0,
+        entry_low=91200.0,
+        entry_high=91800.0,
+        target_price=95000.0,
+        stop_loss=89800.0,
+        risk_reward=2.8,
+        support_level=90500.0,
+        resistance_level=95500.0,
+        rsi_1h=56.4,
+        ma20_1h=91150.0,
+        ma50_1h=90800.0,
+        ma50_4h=89500.0,
+        timeframe="1h",
+        reasons=["Clean 1H MA20 bounce", "Bullish RSI continuation above 50"],
+        df_1h=pd.DataFrame(),
+        df_4h=pd.DataFrame(),
+    )
+    writer = AIWriter(disable_api=True)
+    return {
+        style: writer.generate_post_text(dummy_setup, post_style=style)
+        for style in ["sniper", "technical", "clean", "conversational", "danger_zone", "whale", "reversal"]
+    }
 
 
 def format_price(val: float) -> str:
@@ -501,99 +551,3 @@ Strict Rules:
         if canonical_style in templates_map:
             return templates_map[canonical_style]
         return random.choice(list(templates_map.values()))
-
-    def generate_all_style_previews(self, coin: str = "BTCUSDT", direction: str = "LONG") -> Dict[str, str]:
-        """Generates realistic post text previews for all supported post styles."""
-        from src.technical_analysis import TradeSetup
-        clean_coin = coin.replace("$", "").replace("/", "").strip().upper()
-        if not clean_coin.endswith("USDT"):
-            clean_coin += "USDT"
-
-        is_long = direction.upper() == "LONG"
-        price = 92450.0 if "BTC" in clean_coin else (3150.0 if "ETH" in clean_coin else 185.0)
-        entry_low = round(price * 0.995, 2)
-        entry_high = round(price * 1.005, 2)
-        tp1 = round(price * 1.025, 2) if is_long else round(price * 0.975, 2)
-        tp2 = round(price * 1.055, 2) if is_long else round(price * 0.945, 2)
-        tp3 = round(price * 1.085, 2) if is_long else round(price * 0.915, 2)
-        sl = round(price * 0.98, 2) if is_long else round(price * 1.02, 2)
-        sup = round(price * 0.975, 2)
-        res = round(price * 1.035, 2)
-
-        sample_setup = TradeSetup(
-            coin=clean_coin,
-            direction="LONG" if is_long else "SHORT",
-            current_price=price,
-            entry_low=entry_low,
-            entry_high=entry_high,
-            target_price=tp3,
-            stop_loss=sl,
-            risk_reward=2.8,
-            support_level=sup,
-            resistance_level=res,
-            rsi_1h=39.2 if is_long else 68.4,
-            ma20_1h=round(price * 0.997, 2),
-            ma50_1h=round(price * 0.991, 2),
-            ma50_4h=round(price * 0.984, 2),
-            timeframe="1h/4h",
-            reasons=["Key structural liquidity sweep confirmed", "1H RSI momentum divergence"],
-            df_1h=pd.DataFrame(),
-            df_4h=pd.DataFrame(),
-        )
-
-        styles = ["sniper", "technical", "clean", "conversational", "danger_zone", "whale", "reversal"]
-        previews = {}
-        cashtag = f"${clean_coin.replace('USDT', '')}"
-        bias = "Bullish" if is_long else "Bearish"
-        for s in styles:
-            previews[s] = self._generate_template_fallback(sample_setup, cashtag=cashtag, bias=bias, post_style=s)
-        return previews
-
-    def generate_single_style_preview(
-        self,
-        style: str,
-        coin: str = "BTCUSDT",
-        direction: str = "LONG",
-    ) -> str:
-        """Generates realistic post text preview for a specific post style and direction."""
-        from src.technical_analysis import TradeSetup
-        clean_coin = coin.replace("$", "").replace("/", "").strip().upper()
-        if not clean_coin.endswith("USDT"):
-            clean_coin += "USDT"
-
-        is_long = direction.upper() == "LONG"
-        price = 92450.0 if "BTC" in clean_coin else (3150.0 if "ETH" in clean_coin else 185.0)
-        entry_low = round(price * 0.995, 2)
-        entry_high = round(price * 1.005, 2)
-        tp1 = round(price * 1.025, 2) if is_long else round(price * 0.975, 2)
-        tp2 = round(price * 1.055, 2) if is_long else round(price * 0.945, 2)
-        tp3 = round(price * 1.085, 2) if is_long else round(price * 0.915, 2)
-        sl = round(price * 0.98, 2) if is_long else round(price * 1.02, 2)
-        sup = round(price * 0.975, 2)
-        res = round(price * 1.035, 2)
-
-        sample_setup = TradeSetup(
-            coin=clean_coin,
-            direction="LONG" if is_long else "SHORT",
-            current_price=price,
-            entry_low=entry_low,
-            entry_high=entry_high,
-            target_price=tp3,
-            stop_loss=sl,
-            risk_reward=2.8,
-            support_level=sup,
-            resistance_level=res,
-            rsi_1h=39.2 if is_long else 68.4,
-            ma20_1h=round(price * 0.997, 2),
-            ma50_1h=round(price * 0.991, 2),
-            ma50_4h=round(price * 0.984, 2),
-            timeframe="1h/4h",
-            reasons=["Key structural liquidity sweep confirmed", "1H RSI momentum divergence"],
-            df_1h=pd.DataFrame(),
-            df_4h=pd.DataFrame(),
-        )
-
-        cashtag = f"${clean_coin.replace('USDT', '')}"
-        bias = "Bullish" if is_long else "Bearish"
-        canonical = normalize_post_style(style)
-        return self._generate_template_fallback(sample_setup, cashtag=cashtag, bias=bias, post_style=canonical)

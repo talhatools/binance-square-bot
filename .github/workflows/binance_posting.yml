@@ -35,24 +35,28 @@ on:
         type: string
         default: ''
       post_style:
-        description: 'Post Style (Select any style to see its preview):'
+        description: |
+          👇 HAR STYLE KI SAMPLE POST PREVIEW (Neeche box me choose karein):
+          [sniper] ➔ 🚀 Guys, LONG $BTC Now! 📍 Entry: $91,200 🎯 TP1: $93,500 🛑 SL: $89,800 👉 Execute trade on $BTC now! 💰
+          [technical] ➔ 📊 Multi-TF TA on $BTC. MA20 support held + RSI 58. 📍 Entry: $91k-$92k 🎯 TP1: $93.5k (+2.5%) 🛑 SL: $89.8k (-2%)
+          [clean] ➔ ✨ $BTC BIG LONG : Testing support, clean bounce triggers sharp move! 📍 Entry: $91k-$92k 🛑 SL: $89.8k 🎯 TP1: $93.5k 🎯 TP2: $95k
+          [conversational] ➔ 💬 guys, have you seen what’s happening with $BTC ? 🚨 Momentum exhaustion. 📍 Entry: $91k-$92k 🛑 SL: $89.8k Are bears running out of fuel? 👇
+          [danger_zone] ➔ ⚠️ $BTC ENTERING CRITICAL DANGER ZONE ... UNWIND. Watching for BIG LONG around here. 📍 Entry: $91k-$92k 🎯 TP1: $93.5k
+          [whale] ➔ 🐋 $BTC The harder they dump into support, the harder the reversal! Big players trap late retail. 📍 Entry: $91k-$92k 🎯 TP: $95k
+          [reversal] ➔ 🔄 I’m going to open a BIG LONG on $BTC here. 📍 Entry: $91k-$92k 🎯 TP: $95k 🛑 SL: $89.8k Flush already happened! 🚀
+          [auto] ➔ Har cycle me randomly naya high-converting style rotate karega.
         required: false
         type: choice
         options:
-          - 'auto (Rotate all styles)'
-          - 'sniper ➔ 🚀 Guys, LONG $BTC Now! Entry: $92k | TP: $95k | SL: $90k'
-          - 'technical ➔ BTC structure. 🟢 LONG $BTC | Bias: Bullish | Entry, TPs (%), MA20, RSI'
-          - 'clean ➔ $BTC BIG LONG : Clean Setup | 📍 Entry | 🛑 SL | 🎯 TP1-3'
-          - 'conversational ➔ guys, have you seen what’s happening with $BTC ? 🚨 Question Hook'
-          - 'danger_zone ➔ $BTC IS ENTERING CRITICAL DANGER ZONE ... WATCHING FOR UNWIND'
-          - 'whale ➔ $BTC The harder they dump, harder the reversal! Whale trap thesis'
-          - 'reversal ➔ I’m going to open a BIG LONG on $BTC here. Catch recovery wave!'
-        default: 'auto (Rotate all styles)'
-      preview_only:
-        description: 'Preview Only (Instant dummy post style preview without market scan or live posting)'
-        required: false
-        type: boolean
-        default: false
+          - "auto - (Har bar naya style rotate karega)"
+          - "sniper - 🚀 Guys, LONG $BTC Now! Entry: 91k | TP1: 93k | SL: 89k"
+          - "technical - 📊 Multi-TF TA | MA20 + RSI | Multi-TPs with %"
+          - "clean - ✨ Clean setup | $BTC BIG LONG : Testing support"
+          - "conversational - 💬 guys, have you seen what is happening with $BTC? 🚨"
+          - "danger_zone - ⚠️ $BTC ENTERING CRITICAL DANGER ZONE ... UNWIND"
+          - "whale - 🐋 Orderbook whale trap | Don't fight smart money"
+          - "reversal - 🔄 Big reversal recovery | Flush already happened"
+        default: "auto - (Har bar naya style rotate karega)"
 
 concurrency:
   group: binance-square-posting
@@ -112,16 +116,10 @@ jobs:
           fi
 
           STYLE_FLAG=""
-          if [ -n "$STYLE_INPUT" ] && [ "$STYLE_INPUT" != "auto" ]; then
-            echo "Custom Post Style specified: $STYLE_INPUT"
-            STYLE_FLAG="--post-style $STYLE_INPUT"
-          fi
-
-          PREVIEW_INPUT="${{ github.event.inputs.preview_only }}"
-          if [ "$PREVIEW_INPUT" = "true" ]; then
-            echo "DUMMY PREVIEW ONLY: Generating instant dummy style preview (skipping live scan & posting)..."
-            python main.py --dummy-style "$STYLE_INPUT" --coin "${COIN_INPUT:-BTC}"
-            exit 0
+          if [ -n "$STYLE_INPUT" ] && [[ "$STYLE_INPUT" != auto* ]]; then
+            STYLE_KEY=$(echo "$STYLE_INPUT" | sed -E 's/[ -:].*//' | tr -d ' ')
+            echo "Custom Post Style specified: $STYLE_KEY (from '$STYLE_INPUT')"
+            STYLE_FLAG="--post-style $STYLE_KEY"
           fi
 
           if [ -n "$COIN_INPUT" ]; then
@@ -133,6 +131,20 @@ jobs:
           else
             echo "Running in standard cooldown mode (guaranteeing different coins)..."
             python main.py --run-once $VOL_FLAG $STYLE_FLAG
+          fi
+
+      - name: Generate Post Preview Summary
+        if: always()
+        run: |
+          echo "## 📢 Binance Square Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chart Visual Style:** \`${{ github.event.inputs.chart_style || 'sada' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Post Copywriting Style:** \`${{ github.event.inputs.post_style || 'auto' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f data/latest_post.txt ]; then
+            echo "### 📝 Published Post Content Preview:" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat data/latest_post.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Save Updated SQLite Database Cache

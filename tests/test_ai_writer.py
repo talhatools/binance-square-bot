@@ -53,3 +53,26 @@ def test_post_style_selection():
         assert "not financial advice" not in text.lower()
         assert "dyor" not in text.lower()
 
+
+def test_verbose_dropdown_normalization_and_samples():
+    from src.ai_writer import normalize_post_style, get_sample_posts
+
+    # Test normalization of full verbose dropdown labels
+    assert normalize_post_style("sniper - 🚀 Guys, LONG $BTC Now! Entry: 91k | TP1: 93k | SL: 89k") == "sniper"
+    assert normalize_post_style("technical - 📊 Multi-TF TA | MA20 + RSI | Multi-TPs with %") == "technical"
+    assert normalize_post_style("clean - ✨ Clean setup | $BTC BIG LONG : Testing support") == "clean"
+    assert normalize_post_style("conversational - 💬 guys, have you seen what is happening with $BTC? 🚨") == "conversational"
+    assert normalize_post_style("danger_zone - ⚠️ $BTC ENTERING CRITICAL DANGER ZONE ... UNWIND") == "danger_zone"
+    assert normalize_post_style("whale - 🐋 Orderbook whale trap | Don't fight smart money") == "whale"
+    assert normalize_post_style("reversal - 🔄 Big reversal recovery | Flush already happened") == "reversal"
+    assert normalize_post_style("auto - (Har bar naya style rotate karega)") == "auto"
+
+    # Test sample posts generation
+    samples = get_sample_posts()
+    assert len(samples) == 7
+    for name, sample_text in samples.items():
+        assert "$BTC" in sample_text
+        assert len(sample_text) > 40
+        assert "not financial advice" not in sample_text.lower()
+
+

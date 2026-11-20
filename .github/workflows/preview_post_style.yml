@@ -4,7 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       post_style:
-        description: 'Choose Post Style to Preview (See format in option):'
+        description: |
+          👇 POST STYLES PREVIEWS (Box ke neeche sample post dekhein):
+          [sniper] ➔ 🚀 Guys, LONG $BTC Now! 📍 Entry: $91,200 🎯 TP1: $93,500 🛑 SL: $89,800 👉 Execute trade on $BTC now! 💰
+          [technical] ➔ 📊 Multi-TF TA on $BTC. MA20 support held + RSI 58. 📍 Entry: 91k-92k 🎯 TP1: 93.5k (+2.5%) 🛑 SL: 89.8k (-2%)
+          [clean] ➔ ✨ $BTC BIG LONG : Testing support, clean bounce triggers sharp move! 📍 Entry: 91k-92k 🛑 SL: 89.8k 🎯 TP1: 93.5k
+          [conversational] ➔ 💬 guys, have you seen what’s happening with $BTC ? 🚨 Momentum exhaustion. 📍 Entry: 91k-92k 🛑 SL: 89.8k
+          [danger_zone] ➔ ⚠️ $BTC ENTERING CRITICAL DANGER ZONE ... UNWIND. Watching for BIG LONG around here. 📍 Entry: 91k-92k
+          [whale] ➔ 🐋 $BTC The harder they dump into support, the harder the reversal! Big players trap late retail. 📍 Entry: 91k-92k
+          [reversal] ➔ 🔄 I’m going to open a BIG LONG on $BTC here. 📍 Entry: 91k-92k 🎯 TP: 95k 🛑 SL: 89.8k Flush already happened! 🚀
+          [all] ➔ Tamam styles ka ikatha dummy preview dekhein.
         required: true
         type: choice
         options:
@@ -44,4 +53,8 @@ jobs:
 
       - name: Display Dummy Post Preview
         run: |
-          python main.py --dummy-style "${{ github.event.inputs.post_style }}" --coin "${{ github.event.inputs.coin }}"
+          python main.py --dummy-style "${{ github.event.inputs.post_style }}" --coin "${{ github.event.inputs.coin }}" | tee preview_out.txt
+          echo "## 🎨 Post Style Preview Result" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          cat preview_out.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

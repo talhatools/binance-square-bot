@@ -242,6 +242,14 @@ class PostingBot:
             chosen_post_style = post_style or getattr(self.settings, "post_style", "auto")
             post_text = self.ai_writer.generate_post_text(setup, post_style=chosen_post_style)
             logger.info(f"Generated Post Content ({len(post_text)} chars) [Style: {chosen_post_style}]:\n{post_text}")
+
+            # Save latest post preview for GitHub summary and user inspection
+            try:
+                self.settings.data_dir.mkdir(parents=True, exist_ok=True)
+                latest_post_file = self.settings.data_dir / "latest_post.txt"
+                latest_post_file.write_text(post_text, encoding="utf-8")
+            except Exception as write_err:
+                logger.debug(f"Could not write latest_post.txt: {write_err}")
         except Exception as exc:
             logger.error(f"Failed to draft post text for {symbol}: {exc}", exc_info=True)
             return None
@@ -301,5 +309,4 @@ class PostingBot:
             "share_link": share_link,
             "chart_path": str(chart_path),
             "text": post_text,
-            "post_style": chosen_post_style,
         }
