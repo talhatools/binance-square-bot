@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binance Square - Post Styles Live Preview</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background-color: #121318;
+            color: #eaecef;
+            padding: 24px 16px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 680px;
+            background: #181a20;
+            border-radius: 16px;
+            border: 1px solid #2b313a;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #2b313a;
+        }
+        .badge {
+            background: #f0b90b;
+            color: #181a20;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+        h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #f0b90b;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #848e9c;
+            margin-top: 4px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #eaecef;
+            margin-bottom: 8px;
+        }
+        .select-box {
+            width: 100%;
+            padding: 14px 16px;
+            background-color: #2b313a;
+            border: 1.5px solid #474d57;
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .select-box:hover {
+            border-color: #f0b90b;
+        }
+        .select-box:focus {
+            border-color: #f0b90b;
+            box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.2);
+        }
+        .preview-wrapper {
+            margin-top: 20px;
+            background: #1e2329;
+            border-radius: 12px;
+            border: 1px solid #363c4e;
+            overflow: hidden;
+        }
+        .preview-header {
+            background: #2b313a;
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #363c4e;
+        }
+        .style-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #f0b90b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .char-counter {
+            font-size: 12px;
+            color: #848e9c;
+        }
+        .post-content {
+            padding: 18px 20px;
+            font-size: 14.5px;
+            line-height: 1.7;
+            color: #eaecef;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: inherit;
+            min-height: 180px;
+        }
+        .footer-bar {
+            padding: 12px 16px;
+            background: #181a20;
+            border-top: 1px solid #2b313a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-copy {
+            background: #f0b90b;
+            color: #181a20;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .btn-copy:hover {
+            background: #fcd535;
+        }
+        .copied-notice {
+            font-size: 13px;
+            color: #0ecb81;
+            font-weight: 600;
+            display: none;
+        }
+        .style-meta {
+            margin-top: 14px;
+            font-size: 12.5px;
+            color: #848e9c;
+            line-height: 1.5;
+            background: rgba(240, 185, 11, 0.05);
+            border-left: 3px solid #f0b90b;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <span class="badge">BINANCE SQUARE</span>
+        <div>
+            <h1>Post Copywriting Styles — Live Preview</h1>
+            <div class="subtitle">Neeche dropdown se style choose karein, theek neeche fixed dummy post preview show hoga:</div>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="styleSelect">👉 Choose Post Style (Select karein):</label>
+        <select id="styleSelect" class="select-box" onchange="updatePostPreview()">
+            <option value="sniper">⚡ sniper (Ultra-Short & Fast Alert)</option>
+            <option value="clean" selected>✨ clean (Clean Trading Setup)</option>
+            <option value="technical">📊 technical (In-depth Multi-TF TA & % Targets)</option>
+            <option value="conversational">💬 conversational (Community Question Hook)</option>
+            <option value="danger_zone">⚠️ danger_zone (Breakdown / Liquidity Trap)</option>
+            <option value="whale">🐋 whale (Smart Money / Order Book Trap)</option>
+            <option value="reversal">🔄 reversal (Key Support Flush Recovery)</option>
+        </select>
+    </div>
+
+    <!-- POST PREVIEW BOX (Directly under the dropdown box) -->
+    <div class="preview-wrapper">
+        <div class="preview-header">
+            <span class="style-title" id="previewTitle">✨ STYLE: CLEAN</span>
+            <span class="char-counter" id="charCount">285 characters</span>
+        </div>
+        <div class="post-content" id="postContent"></div>
+        <div class="footer-bar">
+            <span class="copied-notice" id="copiedNotice">✅ Post text copied!</span>
+            <button class="btn-copy" onclick="copyPostText()">📋 Copy Text</button>
+        </div>
+    </div>
+
+    <div class="style-meta" id="styleDescription">
+        Saaf-suthra aur modern trading format. Key level bounce aur direct targets clear layout me.
+    </div>
+</div>
+
+<script>
+    // Exact benchmark dummy posts for each style (Consistent, 100% deterministic)
+    const DUMMY_POSTS = {
+        "sniper": {
+            title: "⚡ STYLE: SNIPER (Ultra-Short Alert)",
+            desc: "Fast mobile traders ke liye ultra-short signal call. Direct entry, TPs aur SL bina kisi lambi tafseel ke.",
+            text: `🚀 Guys, LONG $BTC Now!
+
+📍 Entry Current Price: $91,500
+
+🎯 TP1: $92,900
+🎯 TP2: $94,125
+
+🛑 Stop Loss: $89,800
+
+👉 Execute trade on $BTC now! 💰`
+        },
+        "clean": {
+            title: "✨ STYLE: CLEAN (Clean Trading Setup)",
+            desc: "Saaf-suthra aur modern layout. Testing support aur clear trade levels with widget call-to-action.",
+            text: `$BTC BIG LONG : BTC is testing key support, and a clean bounce here triggers another sharp move toward higher targets!
+
+Trading Setup LONG $BTC:
+📍 Entry: $91,200 - $91,800
+🛑 SL: $89,800
+🎯 TP1: $92,900
+🎯 TP2: $94,125
+🎯 TP3: $95,000
+
+Trade $BTC here :👇`
+        },
+        "technical": {
+            title: "📊 STYLE: TECHNICAL (Multi-TF Analysis & % Targets)",
+            desc: "Detailed technical analysis. 1H MA20 trend, RSI momentum aur multi-target percentage calculations ke saath.",
+            text: `BTC is reacting at key structure on the 1H/4H chart.
+
+🟢 LONG $BTC /USDT
+Bias: BULLISH · R:R 2.8
+
+📍 Entry: $91,200 – $91,800
+🎯 TP1: $92,900 (+1.5%)
+🎯 TP2: $94,125 (+2.9%)
+🎯 TP3: $95,000 (+3.8%)
+🛑 SL: $89,800 (-1.9%)
+
+• Trend: Price above 1H MA20 ($91,150)
+• Momentum: RSI at 56.4
+Plan: Lock half at TP1, move stop to entry.
+
+👇 Tap below to execute trade on $BTC!`
+        },
+        "conversational": {
+            title: "💬 STYLE: CONVERSATIONAL (Community Question Hook)",
+            desc: "High engagement format. Sawal se shuru hoti hai jo readers ko comment aur debate karne par majboor karti hai.",
+            text: `guys, have you seen what’s happening with $BTC ? 🚨
+
+Price made an aggressive push into $90,500, but momentum is showing clear exhaustion on 1H/4H. I'm not convinced bears can hold this level.
+
+Here’s what I’m watching right now 👇
+Setup on $BTC:
+📍 Entry: $91,200 - $91,800
+🛑 SL: $89,800
+🎯 Targets: $92,900 ➔ $94,125 ➔ $95,000
+
+Are the bears running out of fuel? 👇
+Trade $BTC below! 🔥`
+        },
+        "danger_zone": {
+            title: "⚠️ STYLE: DANGER_ZONE (Breakdown / Liquidity Trap)",
+            desc: "Breakdown aur stop-hunt awareness. High volatility trap zones aur exhaustion unwind par focus.",
+            text: `$BTC IS ENTERING THE CRITICAL DANGER ZONE ... WATCHING FOR THE UNWIND
+
+I’m looking for a BIG LONG on $BTC around this area.
+
+📍 Entry: $91,200 - $91,800
+🎯 TP1: $92,900
+🎯 TP2: $94,125
+🎯 Final Target: $95,000
+🛑 SL: $89,800
+
+Why long here? Price is stretched at support ($90,500) after an aggressive dump. 1H RSI (56.4) signals seller exhaustion while liquidity sits higher.
+
+Trade on $BTC here 👇`
+        },
+        "whale": {
+            title: "🐋 STYLE: WHALE (Smart Money / Order Book Trap)",
+            desc: "Institutional order-flow angle. Retail traders ko late dump me trap karne aur smart money ke saath entry lene ka thesis.",
+            text: `$BTC The harder they dump it into support, the harder the reversal! That’s how big players trap late retail before the real trend expansion.
+
+High Conviction LONG Setup:
+📍 Entry Zone: $91,200 - $91,800
+🎯 TP: $95,000
+🛑 SL: $89,800 (R:R 2.8)
+
+Don't fight the smart money. Just go long on $BTC and lock in gains! ⚡`
+        },
+        "reversal": {
+            title: "🔄 STYLE: REVERSAL (Key Support Flush Recovery)",
+            desc: "Major bounce aur recovery wave setup. Panic flush hone ke baad conviction long call.",
+            text: `I’m going to open a BIG LONG on $BTC here.
+
+📍 Entry: $91,200 - $91,800
+🎯 TP: $95,000
+🛑 SL: $89,800 👇
+
+Look at the chart: after that heavy move, $BTC is finally holding structure at $90,500 instead of breaking down. Risk-to-reward (1:2.8) is prime and bears are exhausted.
+
+The flush already happened. Now let's catch the recovery wave!
+Trade $BTC now! 🚀`
+        }
+    };
+
+    function updatePostPreview() {
+        const select = document.getElementById("styleSelect");
+        const chosen = select.value;
+        const data = DUMMY_POSTS[chosen] || DUMMY_POSTS["clean"];
+
+        document.getElementById("previewTitle").innerText = data.title;
+        document.getElementById("postContent").innerText = data.text;
+        document.getElementById("styleDescription").innerText = data.desc;
+        document.getElementById("charCount").innerText = data.text.length + " characters";
+    }
+
+    function copyPostText() {
+        const text = document.getElementById("postContent").innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            const notice = document.getElementById("copiedNotice");
+            notice.style.display = "inline";
+            setTimeout(() => {
+                notice.style.display = "none";
+            }, 2000);
+        });
+    }
+
+    // Initialize on load
+    updatePostPreview();
+</script>
+
+</body>
+</html>
