@@ -40,8 +40,13 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install pandas
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Display Dummy Post Preview
         run: |
-          python main.py --dummy-style "${{ github.event.inputs.post_style }}" --coin "${{ github.event.inputs.coin }}"
+          python main.py --dummy-style "${{ github.event.inputs.post_style }}" --coin "${{ github.event.inputs.coin }}" | tee preview_out.txt
+          echo "## 🎨 Post Style Preview Result" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          cat preview_out.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

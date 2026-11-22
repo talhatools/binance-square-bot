@@ -5,9 +5,14 @@ import argparse
 import logging
 from logging.handlers import RotatingFileHandler
 from datetime import datetime, timezone
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
+try:
+    from apscheduler.schedulers.blocking import BlockingScheduler
+    from apscheduler.triggers.interval import IntervalTrigger
+    from apscheduler.triggers.cron import CronTrigger
+except ImportError:
+    BlockingScheduler = None
+    IntervalTrigger = None
+    CronTrigger = None
 
 from config.settings import get_settings
 from src.bot import PostingBot

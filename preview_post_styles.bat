@@ -6,5 +6,5 @@ echo   Binance Square Bot - Post Style Live Preview
 echo ========================================================
 echo.
 echo Opening interactive Post Style Preview in your browser...
-start "" "%~dp0post_style_preview.html"
+start "" "%~dp0index.html"
 exit
