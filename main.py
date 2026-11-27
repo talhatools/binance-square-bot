@@ -187,7 +187,13 @@ def main():
         "--chart-style",
         choices=["both", "sada", "mobile", "competitor", "binance", "tradingview", "binance_app"],
         default=None,
-        help="Chart visual style: 'sada' (Clean), 'mobile' (Mobile App), 'competitor' (With lines), 'tradingview' (Pro dark), or 'both'.",
+        help="Chart visual style: 'tradingview' (Default Pro dark 4H), 'sada' (Clean), 'mobile' (Mobile App), 'competitor' (With lines), or 'both'.",
+    )
+    parser.add_argument(
+        "--timeframe",
+        choices=["4h", "1h"],
+        default=None,
+        help="Chart candlestick timeframe: '4h' (Default) or '1h'.",
     )
     parser.add_argument(
         "--coin",
@@ -253,6 +259,9 @@ def main():
     settings = get_settings()
     if args.chart_style:
         settings.chart_style = args.chart_style
+
+    if getattr(args, "timeframe", None):
+        settings.chart_timeframe = args.timeframe.strip().lower()
 
     if args.post_style:
         from src.ai_writer import normalize_post_style
@@ -336,6 +345,8 @@ def main():
             coin=coin_arg,
             min_volume=settings.min_24h_quote_volume,
             post_style=settings.post_style,
+            chart_style=settings.chart_style,
+            chart_timeframe=settings.chart_timeframe,
         )
         tracker.evaluate_pending_signals()
         if result:

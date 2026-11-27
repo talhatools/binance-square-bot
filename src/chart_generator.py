@@ -175,13 +175,15 @@ class ChartGenerator:
         self,
         output_dir: Path | str = "charts",
         watermark_text: str = "Talha Sniper",
-        default_style: str = "sada",
+        default_style: str = "tradingview",
+        default_timeframe: str = "4h",
     ):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.watermark_text = watermark_text
         self.default_style = default_style.lower()
-        self._style_cycle = itertools.cycle(["sada", "mobile", "competitor", "tradingview"])
+        self.default_timeframe = default_timeframe.lower()
+        self._style_cycle = itertools.cycle(["tradingview", "sada", "mobile", "competitor"])
 
     def generate_chart(
         self,
@@ -189,40 +191,49 @@ class ChartGenerator:
         bars_count: Optional[int] = None,
         filename_prefix: Optional[str] = None,
         style: Optional[str] = None,
+        timeframe: Optional[str] = None,
     ) -> Path:
         """
         Generates a chart according to requested or alternating style:
-        - 'mobile' / 'binance_mobile' (Authentic Binance Mobile App portrait screenshot)
+        - 'tradingview' (TradingView Pro dark style with RSI sub-panel, default 4H)
         - 'sada' / 'clean' (Pure landscape Binance screenshot - NO lines, NO logo)
+        - 'mobile' / 'binance_mobile' (Authentic Binance Mobile App portrait screenshot)
         - 'competitor' / 'binance' (Competitor landscape with trendlines, TP/SL levels, and watermark)
-        - 'tradingview' (TradingView Pro dark style with RSI sub-panel)
         - 'both' / 'alternate' (Alternates automatically on each post)
         """
         chosen_style = (style or self.default_style).lower()
+        chosen_tf = (timeframe or getattr(self, "default_timeframe", "4h")).lower()
+
         if chosen_style in ("both", "alternate", "auto", "mix"):
             chosen_style = next(self._style_cycle)
 
         if chosen_style in ("mobile", "binance_mobile", "phone", "portrait"):
-            return self._render_binance_mobile(setup, bars_count or 38, filename_prefix)
+            return self._render_binance_mobile(setup, bars_count or 38, filename_prefix, timeframe=chosen_tf)
         elif chosen_style in ("sada", "clean", "binance_clean", "pure", "raw", "desktop", "sada_desktop"):
-            return self._render_binance_app(setup, bars_count or 52, filename_prefix, clean=True)
+            return self._render_binance_app(setup, bars_count or 52, filename_prefix, clean=True, timeframe=chosen_tf)
         elif chosen_style in ("binance_app", "binance", "competitor", "binance_competitor", "markup", "app"):
-            return self._render_binance_app(setup, bars_count or 52, filename_prefix, clean=False)
+            return self._render_binance_app(setup, bars_count or 52, filename_prefix, clean=False, timeframe=chosen_tf)
         else:
-            return self._render_tradingview_pro(setup, bars_count or 70, filename_prefix)
+            return self._render_tradingview_pro(setup, bars_count or 70, filename_prefix, timeframe=chosen_tf)
 
     def _render_binance_mobile(
         self,
         setup: TradeSetup,
         bars_count: int = 38,
         filename_prefix: Optional[str] = None,
+        timeframe: str = "4h",
     ) -> Path:
         """
         Renders authentic Binance Mobile App portrait screenshot (1024x2048, 1:2 ratio),
         matching real phone display (top status/header, big price + 24h stats, timeframe tabs,
         clean candlesticks with MA7/MA25, volume panel, and bottom Buy/Sell buttons).
         """
-        full_df = setup.df_1h.copy()
+        is_4h = (timeframe.lower() == "4h")
+        if is_4h and setup.df_4h is not None and not setup.df_4h.empty:
+            full_df = setup.df_4h.copy()
+        else:
+            full_df = setup.df_1h.copy()
+
         full_df.rename(
             columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
             inplace=True,
@@ -440,9 +451,10 @@ class ChartGenerator:
 
         # Timeframe Tabs (y=0.845)
         tabs = ["Line", "15m", "1h", "4h", "1D", "More v", "Depth"]
+        active_tab = "4h" if timeframe.lower() == "4h" else "1h"
         x_cur = 0.045
         for t in tabs:
-            is_act = (t == "1h")
+            is_act = (t.lower() == active_tab)
             c = "#ffffff" if is_act else text_muted
             wt = "bold" if is_act else "normal"
             fig.text(x_cur, 0.845, t, color=c, fontsize=8.0, fontweight=wt)
@@ -482,13 +494,19 @@ class ChartGenerator:
         bars_count: int = 52,
         filename_prefix: Optional[str] = None,
         clean: bool = False,
+        timeframe: str = "4h",
     ) -> Path:
         """
         Renders Binance App Futures (Perpetual) screenshot style:
         - clean=True: Bilkul sada Binance screenshot (NO lines, NO logo, pure live candles & stats)
         - clean=False: Competitor style (trendline, projection arrow, entry box, TP/SL levels, subtle watermark)
         """
-        full_df = setup.df_1h.copy()
+        is_4h = (timeframe.lower() == "4h")
+        if is_4h and setup.df_4h is not None and not setup.df_4h.empty:
+            full_df = setup.df_4h.copy()
+        else:
+            full_df = setup.df_1h.copy()
+
         full_df.rename(
             columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
             inplace=True,
@@ -832,9 +850,10 @@ class ChartGenerator:
 
         # Timeframe Selector Tab Bar aligned with chart left (0.020)
         tf_tabs = ["Time", "5m", "15m", "30m", "1h", "4h", "1d", "1w", "More v"]
+        active_tf = "4h" if timeframe.lower() == "4h" else "1h"
         x_cursor = 0.020
         for tab in tf_tabs:
-            is_active = (tab == "1h")
+            is_active = (tab.lower() == active_tf)
             t_color = "#ffffff" if is_active else text_muted
             font_wt = "bold" if is_active else "normal"
             fig.text(x_cursor, 0.865, tab, fontsize=8.5, color=t_color, fontweight=font_wt)
@@ -862,13 +881,21 @@ class ChartGenerator:
         setup: TradeSetup,
         bars_count: int = 70,
         filename_prefix: Optional[str] = None,
+        timeframe: str = "4h",
     ) -> Path:
         """
         Renders the TradingView Pro dark-theme chart with RSI(14) panel,
-        EMA lines, and TradingView Position Tool.
+        EMA lines, and TradingView Position Tool (4H timeframe by default).
         """
         base_sym = setup.coin.replace("USDT", "")
-        full_df = setup.df_1h.copy()
+        is_4h = (timeframe.lower() == "4h")
+        if is_4h and setup.df_4h is not None and not setup.df_4h.empty:
+            full_df = setup.df_4h.copy()
+            tf_label = "4H"
+        else:
+            full_df = setup.df_1h.copy()
+            tf_label = "1H"
+
         full_df.rename(
             columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"},
             inplace=True,
@@ -883,6 +910,10 @@ class ChartGenerator:
         ma20 = full_ma20.tail(effective_bars)
         ma50 = full_ma50.tail(effective_bars)
         rsi = full_rsi.tail(effective_bars)
+
+        curr_ma20 = full_ma20.iloc[-1] if not np.isnan(full_ma20.iloc[-1]) else setup.ma20_1h
+        curr_ma50 = full_ma50.iloc[-1] if not np.isnan(full_ma50.iloc[-1]) else setup.ma50_1h
+        curr_rsi = full_rsi.iloc[-1] if not np.isnan(full_rsi.iloc[-1]) else setup.rsi_1h
 
         bg_color = "#131722"
         grid_color = "#1e222d"
@@ -1034,7 +1065,7 @@ class ChartGenerator:
 
         # Signature TradingView Large Background Watermark
         main_ax.text(
-            0.50, 0.53, f"{base_sym}USDT · 1H",
+            0.50, 0.53, f"{base_sym}USDT · {tf_label}",
             transform=main_ax.transAxes,
             fontsize=42, fontweight="heavy",
             color="#ffffff", alpha=0.038,
@@ -1128,7 +1159,7 @@ class ChartGenerator:
         chg = ((last_row["Close"] - prev_close) / prev_close) * 100 if prev_close else 0
         chg_color = up_color if chg >= 0 else down_color
 
-        fig.text(chart_left, 0.958, f"{base_sym}/USDT · 1H · BINANCE", fontsize=13, fontweight="bold", color="#ffffff")
+        fig.text(chart_left, 0.958, f"{base_sym}/USDT · {tf_label} · BINANCE", fontsize=13, fontweight="bold", color="#ffffff")
         
         if setup.direction in ("LONG", "SHORT"):
             dir_color = up_color if setup.direction == "LONG" else down_color
@@ -1153,14 +1184,14 @@ class ChartGenerator:
         ohlc_str = f"O {fmt_price(last_row['Open'])}   H {fmt_price(last_row['High'])}   L {fmt_price(last_row['Low'])}   C {fmt_price(last_row['Close'])}   {chg:+.2f}%"
         fig.text(chart_left, 0.925, ohlc_str, fontsize=8.5, color=chg_color, fontweight="bold")
 
-        ind_str = f"EMA(20): {fmt_price(setup.ma20_1h)}   EMA(50): {fmt_price(setup.ma50_1h)}   RSI(14): {setup.rsi_1h:.1f}"
+        ind_str = f"EMA(20): {fmt_price(curr_ma20)}   EMA(50): {fmt_price(curr_ma50)}   RSI(14): {curr_rsi:.1f}"
         fig.text(0.380, 0.925, ind_str, fontsize=8.5, color="#787b86", fontweight="bold")
 
-        fig.text(chart_left, main_bottom - 0.022, f"Relative Strength Index (14) · {setup.rsi_1h:.1f}", fontsize=8, color="#9353d3", fontweight="bold")
+        fig.text(chart_left, main_bottom - 0.022, f"Relative Strength Index (14) · {curr_rsi:.1f}", fontsize=8, color="#9353d3", fontweight="bold")
 
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         prefix = filename_prefix or setup.coin
-        output_file = self.output_dir / f"{prefix}_tv_{timestamp_str}.png"
+        output_file = self.output_dir / f"{prefix}_tv_{tf_label.lower()}_{timestamp_str}.png"
 
         fig.savefig(
             output_file,

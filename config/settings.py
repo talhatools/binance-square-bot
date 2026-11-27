@@ -92,10 +92,13 @@ class Settings:
         default_factory=lambda: os.getenv("WATERMARK_TEXT", "Talha Sniper").strip()
     )
     chart_style: str = field(
-        default_factory=lambda: os.getenv("CHART_STYLE", "sada").strip().lower()
+        default_factory=lambda: os.getenv("CHART_STYLE", "tradingview").strip().lower()
+    )
+    chart_timeframe: str = field(
+        default_factory=lambda: os.getenv("CHART_TIMEFRAME", "4h").strip().lower()
     )
     post_style: str = field(
-        default_factory=lambda: os.getenv("POST_STYLE", "auto").strip().lower()
+        default_factory=lambda: os.getenv("POST_STYLE", "clean").strip().lower()
     )
 
     # Notifications & Alerts (Discord/Slack Webhook or Telegram Bot)

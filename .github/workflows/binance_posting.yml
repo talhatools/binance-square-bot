@@ -13,17 +13,17 @@ on:
         type: boolean
         default: false
       chart_style:
-        description: 'Chart Visual Style (sada=Clean Binance Screenshot, mobile=Binance Mobile App, competitor=Competitor With Lines, tradingview=Pro Dark, both=Mix)'
+        description: 'Chart Visual Style (tradingview=Pro Dark 4H Chart, sada=Clean Binance Screenshot, mobile=Binance Mobile App, competitor=Competitor With Lines, both=Mix)'
         required: false
         type: choice
         options:
+          - tradingview
           - sada
           - mobile
           - competitor
           - binance
-          - tradingview
           - both
-        default: 'sada'
+        default: 'tradingview'
       coin:
         description: 'Specific coin to post (e.g. BTC, ETH, SOL, XRP). Leave empty for auto-scan.'
         required: false
@@ -35,19 +35,19 @@ on:
         type: string
         default: ''
       post_style:
-        description: 'Post Copywriting Style (auto=Rotate All, sniper=Short Alert, technical=In-depth TA, clean=Clean Setup, conversational=Question Hook, danger_zone=Breakdown Trap, whale=Smart Money, reversal=Trend Reversal)'
+        description: 'Post Copywriting Style (clean=Clean Setup, sniper=Short Alert, technical=In-depth TA, auto=Rotate All, conversational=Question Hook, danger_zone=Breakdown Trap, whale=Smart Money, reversal=Trend Reversal)'
         required: false
         type: choice
         options:
+          - clean
           - auto
           - sniper
           - technical
-          - clean
           - conversational
           - danger_zone
           - whale
           - reversal
-        default: 'auto'
+        default: 'clean'
 
 concurrency:
   group: binance-square-posting
@@ -87,9 +87,10 @@ jobs:
           BINANCE_SQUARE_OPENAPI_KEY: ${{ secrets.BINANCE_SQUARE_OPENAPI_KEY }}
           DISABLE_CLAUDE_API: "true"
           DRY_RUN: "false"
-          CHART_STYLE: ${{ github.event.inputs.chart_style || vars.CHART_STYLE || 'sada' }}
+          CHART_STYLE: ${{ github.event.inputs.chart_style || vars.CHART_STYLE || 'tradingview' }}
+          CHART_TIMEFRAME: ${{ vars.CHART_TIMEFRAME || '4h' }}
           WATERMARK_TEXT: ${{ vars.WATERMARK_TEXT || secrets.WATERMARK_TEXT || 'Talha Sniper' }}
-          POST_STYLE: ${{ github.event.inputs.post_style || vars.POST_STYLE || 'auto' }}
+          POST_STYLE: ${{ github.event.inputs.post_style || vars.POST_STYLE || 'clean' }}
           MIN_24H_QUOTE_VOLUME: ${{ github.event.inputs.min_volume_millions || vars.MIN_24H_QUOTE_VOLUME || '25000000' }}
           COOLDOWN_HOURS: "3"
           DAILY_POST_LIMIT: "100"
@@ -100,16 +101,23 @@ jobs:
           COIN_INPUT="${{ github.event.inputs.coin }}"
           VOL_INPUT="${{ github.event.inputs.min_volume_millions }}"
           STYLE_INPUT="${{ github.event.inputs.post_style }}"
+          CHART_INPUT="${{ github.event.inputs.chart_style }}"
           VOL_FLAG=""
           if [ -n "$VOL_INPUT" ]; then
             echo "Custom 24h Futures Volume Filter specified: $VOL_INPUT Million USDT"
             VOL_FLAG="--min-volume $VOL_INPUT"
           fi
 
+          CHART_FLAG=""
+          if [ -n "$CHART_INPUT" ]; then
+            echo "Custom Chart Style specified: $CHART_INPUT"
+            CHART_FLAG="--chart-style $CHART_INPUT"
+          fi
+
           STYLE_FLAG=""
           if [ -n "$STYLE_INPUT" ]; then
             CLEAN_STYLE=$(echo "$STYLE_INPUT" | awk '{print $1}' | tr -d ' ' | tr '[:upper:]' '[:lower:]')
-            if [ "$CLEAN_STYLE" != "auto" ] && [ -n "$CLEAN_STYLE" ]; then
+            if [ -n "$CLEAN_STYLE" ]; then
               echo "Custom Post Style specified: $CLEAN_STYLE (raw: '$STYLE_INPUT')"
               STYLE_FLAG="--post-style $CLEAN_STYLE"
             fi
@@ -117,21 +125,21 @@ jobs:
 
           if [ -n "$COIN_INPUT" ]; then
             echo "Running in SPECIFIC COIN mode: $COIN_INPUT (force mode auto-enabled)..."
-            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $STYLE_FLAG
+            python main.py --run-once --force --coin "$COIN_INPUT" $VOL_FLAG $CHART_FLAG $STYLE_FLAG
           elif [ "${{ github.event.inputs.force_run }}" = "true" ]; then
             echo "Running in high-priority force mode (bypassing coin cooldown)..."
-            python main.py --run-once --force $VOL_FLAG $STYLE_FLAG
+            python main.py --run-once --force $VOL_FLAG $CHART_FLAG $STYLE_FLAG
           else
             echo "Running in standard cooldown mode (guaranteeing different coins)..."
-            python main.py --run-once $VOL_FLAG $STYLE_FLAG
+            python main.py --run-once $VOL_FLAG $CHART_FLAG $STYLE_FLAG
           fi
 
       - name: Generate Post Run Summary
         if: always()
         run: |
           echo "## 📢 Binance Square Run Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chart Visual Style:** \`${{ github.event.inputs.chart_style || 'sada' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Post Copywriting Style:** \`${{ github.event.inputs.post_style || 'auto' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chart Visual Style:** \`${{ github.event.inputs.chart_style || 'tradingview' }} (4H)\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Post Copywriting Style:** \`${{ github.event.inputs.post_style || 'clean' }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f data/latest_post.txt ]; then
             echo "### 📝 Published Post Content Preview:" >> $GITHUB_STEP_SUMMARY

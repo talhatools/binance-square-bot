@@ -27,7 +27,8 @@ class PostingBot:
         self.chart_gen = ChartGenerator(
             output_dir=settings.charts_dir,
             watermark_text=settings.watermark_text,
-            default_style=getattr(settings, "chart_style", "both"),
+            default_style=getattr(settings, "chart_style", "tradingview"),
+            default_timeframe=getattr(settings, "chart_timeframe", "4h"),
         )
         self.ai_writer = AIWriter(
             api_key=settings.anthropic_api_key,
@@ -35,7 +36,7 @@ class PostingBot:
             max_retries=settings.max_retries,
             retry_delay_base=settings.retry_delay_base,
             disable_api=settings.disable_claude_api,
-            default_post_style=getattr(settings, "post_style", "auto"),
+            default_post_style=getattr(settings, "post_style", "clean"),
         )
         self.publisher = SquarePublisher(
             api_key=settings.square_openapi_key,
@@ -104,6 +105,8 @@ class PostingBot:
         coin: str = None,
         min_volume: Optional[float] = None,
         post_style: Optional[str] = None,
+        chart_style: Optional[str] = None,
+        chart_timeframe: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Executes one full iteration of the automated posting pipeline:
@@ -231,15 +234,21 @@ class PostingBot:
 
         # 5. Generate Candlestick Chart PNG
         try:
-            chart_path = self.chart_gen.generate_chart(setup)
-            logger.info(f"Chart generated at: {chart_path}")
+            chosen_chart_style = chart_style or getattr(self.settings, "chart_style", "tradingview")
+            chosen_tf = chart_timeframe or getattr(self.settings, "chart_timeframe", "4h")
+            chart_path = self.chart_gen.generate_chart(
+                setup,
+                style=chosen_chart_style,
+                timeframe=chosen_tf,
+            )
+            logger.info(f"Chart generated at: {chart_path} [Style: {chosen_chart_style}, TF: {chosen_tf}]")
         except Exception as exc:
             logger.error(f"Failed to generate candlestick chart for {symbol}: {exc}", exc_info=True)
             return None
 
         # 6. Draft Text with Claude API (or Fallback Template)
         try:
-            chosen_post_style = post_style or getattr(self.settings, "post_style", "auto")
+            chosen_post_style = post_style or getattr(self.settings, "post_style", "clean")
             post_text = self.ai_writer.generate_post_text(setup, post_style=chosen_post_style)
             logger.info(f"Generated Post Content ({len(post_text)} chars) [Style: {chosen_post_style}]:\n{post_text}")
 

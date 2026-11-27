@@ -37,7 +37,13 @@ def test_chart_generation_both_styles():
         assert "mobile" in Path(mobile_path).name
         assert Path(mobile_path).stat().st_size > 1000
 
-        # 5. Test alternating default style
+        # 5. Test TradingView 4H default style
+        tv_4h_path = chart_gen.generate_chart(setup, bars_count=40, style="tradingview", timeframe="4h")
+        assert Path(tv_4h_path).exists()
+        assert "4h" in Path(tv_4h_path).name.lower()
+        assert Path(tv_4h_path).stat().st_size > 1000
+
+        # 6. Test alternating default style
         alt_path = chart_gen.generate_chart(setup, bars_count=40)
         assert Path(alt_path).exists()
         assert Path(alt_path).stat().st_size > 1000
